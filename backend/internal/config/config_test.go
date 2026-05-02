@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -71,6 +72,42 @@ browser: {}
 	}
 	if cfg.LaunchServer.Auth.Header != DefaultLaunchServerAPIKeyHeader {
 		t.Fatalf("LaunchServer.Auth.Header 未补齐: got=%q", cfg.LaunchServer.Auth.Header)
+	}
+}
+
+func TestDefaultFingerprintArgsForOS(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]string{
+		"windows": "--fingerprint-platform=windows",
+		"linux":   "--fingerprint-platform=linux",
+		"darwin":  "--fingerprint-platform=mac",
+		"freebsd": "--fingerprint-platform=windows",
+	}
+
+	for goos, want := range tests {
+		got := defaultFingerprintArgsForOS(goos)
+		if len(got) != 2 {
+			t.Fatalf("%s: unexpected args length: got=%v", goos, got)
+		}
+		if got[1] != want {
+			t.Fatalf("%s: platform arg mismatch: got=%q want=%q", goos, got[1], want)
+		}
+	}
+}
+
+func TestDefaultConfigUsesCurrentOSFingerprintPlatform(t *testing.T) {
+	t.Parallel()
+
+	cfg := DefaultConfig()
+	want := defaultFingerprintArgsForOS(runtime.GOOS)
+	if len(cfg.Browser.DefaultFingerprintArgs) != len(want) {
+		t.Fatalf("默认指纹参数数量不符: got=%v want=%v", cfg.Browser.DefaultFingerprintArgs, want)
+	}
+	for i := range want {
+		if cfg.Browser.DefaultFingerprintArgs[i] != want[i] {
+			t.Fatalf("默认指纹参数不符: got=%v want=%v", cfg.Browser.DefaultFingerprintArgs, want)
+		}
 	}
 }
 

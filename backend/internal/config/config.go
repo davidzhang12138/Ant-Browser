@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -406,7 +407,7 @@ func DefaultConfig() *Config {
 		},
 		Browser: BrowserConfig{
 			UserDataRoot:           "data",
-			DefaultFingerprintArgs: []string{"--fingerprint-brand=Chrome", "--fingerprint-platform=windows"},
+			DefaultFingerprintArgs: defaultFingerprintArgsForOS(goruntime.GOOS),
 			DefaultLaunchArgs:      []string{"--disable-sync", "--no-first-run"},
 			DefaultProxy:           "",
 			StartReadyTimeoutMs:    3000,
@@ -443,6 +444,17 @@ func DefaultConfig() *Config {
 			},
 		},
 	}
+}
+
+func defaultFingerprintArgsForOS(goos string) []string {
+	platform := "windows"
+	switch strings.ToLower(strings.TrimSpace(goos)) {
+	case "darwin":
+		platform = "mac"
+	case "linux":
+		platform = "linux"
+	}
+	return []string{"--fingerprint-brand=Chrome", "--fingerprint-platform=" + platform}
 }
 
 // Save 保存配置到文件
