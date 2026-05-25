@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from '../../../shared/components'
-import { fetchDashboardStats, redeemCDKey, redeemGithubStar, reloadConfig } from '../../dashboard/api'
 import type { BrowserCore, BrowserCoreInput, BrowserProfile, BrowserProxy, BrowserSettings, BrowserGroupWithCount } from '../types'
 import { BrowserCoreEditorModal, BrowserListHeader, BrowserListSettingsModal, type BrowserViewMode } from '../components/BrowserListLayout'
 import { BatchToolbar } from '../components/BrowserListWidgets'
@@ -9,8 +8,7 @@ import { BrowserProfilesPanel, type ProfileProxyTestState } from '../components/
 import { EMPTY_FILTERS } from '../components/InstanceFilterBar'
 import type { InstanceFilters } from '../components/InstanceFilterBar'
 import type { SortOrder, SorterResult } from '../../../shared/components/Table'
-import { EventsOn, BrowserOpenURL } from '../../../wailsjs/runtime/runtime'
-import { PROJECT_GITHUB_URL } from '../../../config/links'
+import { EventsOn } from '../../../wailsjs/runtime/runtime'
 import { resolveActionErrorMessage, resolveActionFeedback } from '../utils/actionErrors'
 import { BrowserListDialogs } from './browserList/BrowserListDialogs'
 import { getBrowserListScrollTop, saveBrowserListReturnPath, saveBrowserListScrollTop } from '../utils/listReturnPath'
@@ -224,12 +222,6 @@ export function BrowserListPage() {
   const [coreValidation, setCoreValidation] = useState<{ valid: boolean; message: string } | null>(null)
   const [savingCore, setSavingCore] = useState(false)
 
-  // 扩容管理
-  const [expandModalOpen, setExpandModalOpen] = useState(false)
-  const [cdKey, setCdKey] = useState('')
-  const [redeeming, setRedeeming] = useState(false)
-  const [maxProfileLimit, setMaxProfileLimit] = useState(20)
-
   const updatePendingIds = (
     setter: React.Dispatch<React.SetStateAction<Set<string>>>,
     profileId: string,
@@ -337,20 +329,9 @@ export function BrowserListPage() {
     setCores(await fetchBrowserCores())
   }
 
-  const loadQuota = async () => {
-    try {
-      await reloadConfig()
-      const stats = await fetchDashboardStats()
-      setMaxProfileLimit(stats.maxProfileLimit || 20)
-    } catch {
-      // ignore
-    }
-  }
-
   useEffect(() => {
     void loadProfiles()
     loadGroups()
-    loadQuota()
     fetchBrowserProxies().then(setProxies)
     fetchBrowserCores().then(setCores)
 
@@ -945,39 +926,6 @@ export function BrowserListPage() {
     loadCores()
   }
 
-  const handleRedeem = async () => {
-    if (!cdKey.trim()) return
-    setRedeeming(true)
-    const result = await redeemCDKey(cdKey.trim())
-    setRedeeming(false)
-    if (result.success) {
-      toast.success('兑换成功！此名额已到账')
-      setCdKey('')
-      loadQuota()
-    } else {
-      toast.error(result.message || '兑换失败')
-    }
-  }
-
-  const handleClaimStarGift = async () => {
-    setRedeeming(true)
-    const starRes = await redeemGithubStar()
-    setRedeeming(false)
-    if (starRes.success) {
-      toast.success('感谢您的支持！已额外赠送 50 个永久额度！')
-      setCdKey('')
-      loadQuota()
-    } else {
-      toast.error(starRes.message || '领取失败')
-    }
-  }
-
-  const handleOpenGithubStarGift = async () => {
-    BrowserOpenURL(PROJECT_GITHUB_URL)
-    await handleClaimStarGift()
-  }
-
-
   return (
     <div
       ref={pageScrollRef}
@@ -999,11 +947,6 @@ export function BrowserListPage() {
         onRefresh={() => { void loadProfiles() }}
         onOpenTrash={() => { void openTrashModal() }}
         onOpenSettings={handleOpenSettings}
-        onOpenExpandModal={() => {
-          setCdKey('')
-          setExpandModalOpen(true)
-          loadQuota()
-        }}
         onViewModeChange={setViewMode}
       />
 
@@ -1111,15 +1054,6 @@ export function BrowserListPage() {
             p.profileId === kwModal.profile!.profileId ? { ...p, keywords } : p
           ))
         }}
-        expandModalOpen={expandModalOpen}
-        onCloseExpand={() => setExpandModalOpen(false)}
-        profilesCount={profiles.length}
-        maxProfileLimit={maxProfileLimit}
-        cdKey={cdKey}
-        onCdKeyChange={setCdKey}
-        onRedeem={handleRedeem}
-        redeeming={redeeming}
-        onOpenGithubStarGift={handleOpenGithubStarGift}
         copyModal={copyModal}
         copyName={copyName}
         onCopyNameChange={setCopyName}

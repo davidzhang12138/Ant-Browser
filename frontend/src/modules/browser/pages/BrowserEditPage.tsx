@@ -9,6 +9,7 @@ import { TagInput } from '../components/TagInput'
 import { GroupSelector } from '../components/GroupSelector'
 import { ProxyPickerModal } from '../components/ProxyPickerModal'
 import { applyBrowserMajor, applyCoreBrowserMajorToFingerprintArgs, browserMajorFromChromeVersion, createRandomizedFingerprintConfig, deserialize, serialize } from '../utils/fingerprintSerializer'
+import { resolveNearestCoreForBrowserMajor } from '../utils/coreVersionMatcher'
 import { getBrowserListReturnPath } from '../utils/listReturnPath'
 
 const fallbackLowLaunchArgs = ['--disable-sync', '--no-first-run']
@@ -108,6 +109,7 @@ export function BrowserEditPage() {
   const [saving, setSaving] = useState(false)
   const [proxyPickerOpen, setProxyPickerOpen] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
+  const [coreManuallySelected, setCoreManuallySelected] = useState(false)
   const [leaveConfirm, setLeaveConfirm] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -130,6 +132,7 @@ export function BrowserEditPage() {
       setGroups(groupList)
 
       if (isCreate) {
+        setCoreManuallySelected(false)
         const resolved = resolvePoolProxySelection('', '', proxyList)
         const defaultCoreChromeVersion = resolveCoreChromeVersion('', coreList, nextCoreChromeVersions)
         const defaultBrowserMajor = browserMajorFromChromeVersion(defaultCoreChromeVersion)
@@ -153,6 +156,7 @@ export function BrowserEditPage() {
       const normalizedCoreId = !current.coreId || current.coreId.toLowerCase() === 'default'
         ? ''
         : current.coreId
+      setCoreManuallySelected(normalizedCoreId !== '')
       const currentCoreChromeVersion = resolveCoreChromeVersion(normalizedCoreId, coreList, nextCoreChromeVersions)
       const resolvedProxy = resolvePoolProxySelection(current.proxyId || '', current.proxyConfig || '', proxyList)
       setFormData({
@@ -205,6 +209,7 @@ export function BrowserEditPage() {
 
   const handleCoreChange = (coreId: string) => {
     setIsDirty(true)
+    setCoreManuallySelected(true)
     setFormData(prev => ({
       ...prev,
       coreId,
@@ -214,6 +219,23 @@ export function BrowserEditPage() {
         { force: true },
       ),
     }))
+  }
+
+  const handleFingerprintArgsChange = (args: string[]) => {
+    setIsDirty(true)
+    setFormData(prev => {
+      const previousMajor = deserialize(prev.fingerprintArgs).browserMajor || ''
+      const nextMajor = deserialize(args).browserMajor || ''
+      if (coreManuallySelected || !nextMajor || nextMajor === previousMajor) {
+        return { ...prev, fingerprintArgs: args }
+      }
+      const nearestCoreId = resolveNearestCoreForBrowserMajor(nextMajor, cores, coreChromeVersions)
+      return {
+        ...prev,
+        coreId: nearestCoreId || prev.coreId,
+        fingerprintArgs: args,
+      }
+    })
   }
 
   const handleSave = async () => {
@@ -466,7 +488,7 @@ export function BrowserEditPage() {
       <Card title="指纹配置" subtitle="配置浏览器指纹参数">
         <FingerprintPanel
           value={formData.fingerprintArgs}
-          onChange={args => handleChange('fingerprintArgs', args)}
+          onChange={handleFingerprintArgsChange}
         />
       </Card>
 

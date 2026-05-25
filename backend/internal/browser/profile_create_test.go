@@ -47,3 +47,34 @@ func TestManagerCreateHydratesDatabaseID(t *testing.T) {
 		t.Fatalf("List IDs = %+v, want first=%d second=%d", ids, first.ID, second.ID)
 	}
 }
+
+func TestManagerCreateIgnoresConfiguredProfileLimit(t *testing.T) {
+	t.Parallel()
+
+	manager := NewManager(&config.Config{
+		App: config.AppConfig{MaxProfileLimit: 1},
+	}, t.TempDir())
+
+	if _, err := manager.Create(ProfileInput{ProfileName: "first", UserDataDir: "first"}); err != nil {
+		t.Fatalf("Create(first) error = %v", err)
+	}
+	if _, err := manager.Create(ProfileInput{ProfileName: "second", UserDataDir: "second"}); err != nil {
+		t.Fatalf("Create(second) with configured limit error = %v", err)
+	}
+}
+
+func TestManagerCopyIgnoresConfiguredProfileLimit(t *testing.T) {
+	t.Parallel()
+
+	manager := NewManager(&config.Config{
+		App: config.AppConfig{MaxProfileLimit: 1},
+	}, t.TempDir())
+
+	source, err := manager.Create(ProfileInput{ProfileName: "source", UserDataDir: "source"})
+	if err != nil {
+		t.Fatalf("Create(source) error = %v", err)
+	}
+	if _, err := manager.Copy(source.ProfileId, "source copy"); err != nil {
+		t.Fatalf("Copy() with configured limit error = %v", err)
+	}
+}

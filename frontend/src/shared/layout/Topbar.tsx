@@ -203,7 +203,6 @@ export function Topbar() {
           <div className="w-7 h-7 bg-[var(--color-accent)] rounded-md flex items-center justify-center">
             <User className="w-3.5 h-3.5 text-[var(--color-text-inverse)]" />
           </div>
-          <span className="text-sm font-medium text-[var(--color-text-secondary)]">Admin</span>
         </Link>
       </div>
     </header>

@@ -1,5 +1,5 @@
 ﻿import { Link } from 'react-router-dom'
-import { CheckCircle, ChevronRight, ChevronUp, Edit2, Gift, LayoutGrid, List, Play, Plus, RefreshCw, Sliders, Star, Trash2, XCircle } from 'lucide-react'
+import { CheckCircle, ChevronRight, ChevronUp, Edit2, LayoutGrid, List, Play, Plus, RefreshCw, Sliders, Star, Trash2, XCircle } from 'lucide-react'
 
 import { Button, Card, FormItem, Input, Modal, Switch, Table, Textarea } from '../../../shared/components'
 import type { TableColumn } from '../../../shared/components/Table'
@@ -25,7 +25,6 @@ interface BrowserListHeaderProps {
   onRefresh: () => void
   onOpenTrash: () => void
   onOpenSettings: () => void
-  onOpenExpandModal: () => void
   onViewModeChange: (next: BrowserViewMode) => void
 }
 
@@ -44,7 +43,6 @@ export function BrowserListHeader({
   onRefresh,
   onOpenTrash,
   onOpenSettings,
-  onOpenExpandModal,
   onViewModeChange,
 }: BrowserListHeaderProps) {
   return (
@@ -72,14 +70,6 @@ export function BrowserListHeader({
           </Button>
           <Button variant="secondary" size="sm" onClick={onOpenSettings}>
             <Sliders className="w-4 h-4" />基础配置
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onOpenExpandModal}
-            className="text-[var(--color-primary)] border-[var(--color-primary)] hover:bg-[var(--color-primary)]/10"
-          >
-            <Gift className="w-4 h-4" />扩容实例
           </Button>
           <div className="flex items-center bg-[var(--color-bg-secondary)] rounded-md border border-[var(--color-border-default)] p-0.5 ml-2">
             <button
