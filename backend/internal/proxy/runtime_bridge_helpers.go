@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -53,6 +54,163 @@ func resolveEnvPath(path string, appRoot string) string {
 		}
 	}
 	return path
+}
+
+type runtimeBinarySpec struct {
+	displayName string
+	configPath  string
+	configName  string
+	envName     string
+	appRoot     string
+	goos        string
+	goarch      string
+	names       []string
+}
+
+func resolveRuntimeBinary(spec runtimeBinarySpec) (string, error) {
+	if strings.TrimSpace(spec.goos) == "" {
+		spec.goos = "unknown"
+	}
+	if strings.TrimSpace(spec.goarch) == "" {
+		spec.goarch = "unknown"
+	}
+	platformDir := fmt.Sprintf("%s-%s", spec.goos, spec.goarch)
+
+	if configPath := strings.TrimSpace(spec.configPath); configPath != "" {
+		resolved := resolveEnvPath(configPath, spec.appRoot)
+		if resolved != "" {
+			if found, err := executableFile(resolved, spec.displayName); found || err != nil {
+				return resolved, err
+			}
+		}
+	}
+	if env := strings.TrimSpace(os.Getenv(spec.envName)); env != "" {
+		if found, err := executableFile(env, spec.displayName); found || err != nil {
+			return env, err
+		}
+	}
+
+	for _, dir := range runtimeBinarySearchDirs(spec.appRoot, platformDir) {
+		for _, name := range spec.names {
+			candidate := filepath.Join(dir, name)
+			if found, err := executableFile(candidate, spec.displayName); found || err != nil {
+				return candidate, err
+			}
+		}
+	}
+
+	for _, name := range spec.names {
+		if path, err := exec.LookPath(name); err == nil {
+			if _, err := executableFile(path, spec.displayName); err != nil {
+				return "", err
+			}
+			return path, nil
+		}
+	}
+
+	return "", fmt.Errorf("未找到 %s 可执行文件。请将 %s 放到 bin/%s/ 或 bin/ 目录，或在配置中设置 %s", spec.displayName, spec.displayName, platformDir, spec.configName)
+}
+
+func executableFile(path string, displayName string) (bool, error) {
+	if _, err := os.Stat(path); err == nil {
+		if err := fsutil.EnsureExecutable(path); err != nil {
+			return true, fmt.Errorf("%s 文件不可执行: %s: %w", displayName, path, err)
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+func runtimeBinarySearchDirs(appRoot string, platformDir string) []string {
+	dirs := make([]string, 0, 24)
+	appendDir := func(dir string) {
+		dir = strings.TrimSpace(dir)
+		if dir != "" {
+			dirs = append(dirs, dir)
+		}
+	}
+	appendRoot := func(root string) {
+		root = strings.TrimSpace(root)
+		if root == "" {
+			return
+		}
+		appendDir(filepath.Join(root, "bin", platformDir))
+		appendDir(filepath.Join(root, "bin"))
+	}
+
+	appendRoot(appRoot)
+	if exePath, err := os.Executable(); err == nil {
+		appendRoot(filepath.Dir(exePath))
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		appendRoot(cwd)
+	}
+
+	// wails dev on macOS can run from build/bin/*.app/Contents/MacOS while
+	// the checked-in runtime binaries still live in the repository's bin/.
+	for _, root := range []string{appRoot, executableDir(), currentDir()} {
+		for _, parent := range ancestorDirs(root, 8) {
+			appendRoot(parent)
+		}
+	}
+
+	return dedupeStrings(dirs)
+}
+
+func executableDir() string {
+	if exePath, err := os.Executable(); err == nil {
+		return filepath.Dir(exePath)
+	}
+	return ""
+}
+
+func currentDir() string {
+	if cwd, err := os.Getwd(); err == nil {
+		return cwd
+	}
+	return ""
+}
+
+func ancestorDirs(root string, maxDepth int) []string {
+	root = strings.TrimSpace(root)
+	if root == "" || maxDepth <= 0 {
+		return nil
+	}
+	if abs, err := filepath.Abs(root); err == nil {
+		root = abs
+	}
+	out := make([]string, 0, maxDepth)
+	seen := map[string]struct{}{}
+	for i := 0; i < maxDepth; i++ {
+		clean := filepath.Clean(root)
+		if _, ok := seen[clean]; !ok {
+			seen[clean] = struct{}{}
+			out = append(out, clean)
+		}
+		parent := filepath.Dir(clean)
+		if parent == clean {
+			break
+		}
+		root = parent
+	}
+	return out
+}
+
+func dedupeStrings(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		clean := filepath.Clean(strings.TrimSpace(value))
+		if clean == "." || clean == "" {
+			continue
+		}
+		if _, ok := seen[clean]; ok {
+			continue
+		}
+		seen[clean] = struct{}{}
+		out = append(out, clean)
+	}
+	return out
 }
 
 func waitPortReady(host string, port int, timeout time.Duration) error {

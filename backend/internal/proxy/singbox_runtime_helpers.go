@@ -2,81 +2,28 @@ package proxy
 
 import (
 	"ant-chrome/backend/internal/apppath"
-	"ant-chrome/backend/internal/fsutil"
 	"encoding/json"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
 )
 
 func (m *SingBoxManager) resolveBinary() (string, error) {
-	configPath := strings.TrimSpace(m.Config.Browser.SingBoxBinaryPath)
-	if configPath != "" {
-		resolved := resolveEnvPath(configPath, m.AppRoot)
-		if resolved != "" {
-			if _, err := os.Stat(resolved); err == nil {
-				if err := fsutil.EnsureExecutable(resolved); err != nil {
-					return "", fmt.Errorf("sing-box 文件不可执行: %s: %w", resolved, err)
-				}
-				return resolved, nil
-			}
-		}
-	}
-	if env := strings.TrimSpace(os.Getenv("SINGBOX_BINARY_PATH")); env != "" {
-		if _, err := os.Stat(env); err == nil {
-			if err := fsutil.EnsureExecutable(env); err != nil {
-				return "", fmt.Errorf("sing-box 文件不可执行: %s: %w", env, err)
-			}
-			return env, nil
-		}
-	}
-
 	binaryNames := []string{"sing-box"}
 	if goruntime.GOOS == "windows" {
 		binaryNames = []string{"sing-box.exe", "sing-box"}
 	}
-	platformDir := fmt.Sprintf("%s-%s", goruntime.GOOS, goruntime.GOARCH)
-
-	searchDirs := make([]string, 0, 4)
-	if m.AppRoot != "" {
-		searchDirs = append(searchDirs,
-			filepath.Join(m.AppRoot, "bin", platformDir),
-			filepath.Join(m.AppRoot, "bin"),
-		)
-	}
-	if exePath, err := os.Executable(); err == nil {
-		exeDir := filepath.Dir(exePath)
-		searchDirs = append(searchDirs,
-			filepath.Join(exeDir, "bin", platformDir),
-			filepath.Join(exeDir, "bin"),
-		)
-	}
-
-	for _, dir := range searchDirs {
-		for _, name := range binaryNames {
-			candidate := filepath.Join(dir, name)
-			if _, err := os.Stat(candidate); err == nil {
-				if err := fsutil.EnsureExecutable(candidate); err != nil {
-					return "", fmt.Errorf("sing-box 文件不可执行: %s: %w", candidate, err)
-				}
-				return candidate, nil
-			}
-		}
-	}
-
-	for _, name := range binaryNames {
-		if path, err := exec.LookPath(name); err == nil {
-			if err := fsutil.EnsureExecutable(path); err != nil {
-				return "", fmt.Errorf("sing-box 文件不可执行: %s: %w", path, err)
-			}
-			return path, nil
-		}
-	}
-
-	return "", fmt.Errorf("未找到 sing-box 可执行文件。请将 sing-box 放到 bin/%s/ 或 bin/ 目录，或在配置中设置 SingBoxBinaryPath", platformDir)
+	return resolveRuntimeBinary(runtimeBinarySpec{
+		displayName: "sing-box",
+		configPath:  strings.TrimSpace(m.Config.Browser.SingBoxBinaryPath),
+		configName:  "SingBoxBinaryPath",
+		envName:     "SINGBOX_BINARY_PATH",
+		appRoot:     m.AppRoot,
+		goos:        goruntime.GOOS,
+		goarch:      goruntime.GOARCH,
+		names:       binaryNames,
+	})
 }
 
 func (m *SingBoxManager) buildConfig(key string, outbound map[string]interface{}, port int) (string, error) {
