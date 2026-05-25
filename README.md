@@ -146,7 +146,7 @@ Ant Browser 适合以下场景：
 2. 安装版直接运行 `AntBrowser-Setup-*.exe`
 3. 便携版解压后运行 `ant-chrome.exe`
 4. Linux 包下载后可直接安装 `ant-browser_<version>_<arch>.deb`，或解压 `tar.gz` 后运行 `ant-chrome`
-5. macOS unsigned 包解压后运行 `AntBrowser-<version>-macos-<arch>.app`；如被 Gatekeeper 拦截，请对本机测试包执行 `xattr -dr com.apple.quarantine <app路径>` 后再打开
+5. macOS unsigned 包解压后运行 `AntBrowser.app`；如果复制到 `/Applications` 后提示应用已损坏、无法打开或被 Gatekeeper 拦截，可执行 `sudo xattr -dr com.apple.quarantine /Applications/AntBrowser.app` 后再打开
 
 ### 从源码运行
 
