@@ -15,7 +15,8 @@ $StagingRoot = Join-Path $RootDir "publish\staging\windows"
 $Target = "windows-$Arch"
 $StageRoot = Join-Path $StagingRoot $Target
 $AppStage = Join-Path $StageRoot "AntBrowser"
-$AppBin = Join-Path $RootDir "build\bin\ant-chrome.exe"
+$AppBin = Join-Path $RootDir "build\bin\ant-chrome"
+$AppBinExe = Join-Path $RootDir "build\bin\ant-chrome.exe"
 $XraySrc = Join-Path $RootDir "bin\xray.exe"
 $SingBoxSrc = Join-Path $RootDir "bin\sing-box.exe"
 $ConfigSrc = Join-Path $RootDir "publish\config.init.yaml"
@@ -77,6 +78,7 @@ if (-not $SkipBuild) {
 
   Write-Host "[3/4] Building Windows app binary with Wails..."
   Remove-Item $AppBin -Force -ErrorAction SilentlyContinue
+  Remove-Item $AppBinExe -Force -ErrorAction SilentlyContinue
   Push-Location $RootDir
   try {
     wails build -s -platform "windows/$Arch" -o ant-chrome -webview2 browser
@@ -87,8 +89,12 @@ if (-not $SkipBuild) {
   Write-Host "[WARN] skipping build step"
 }
 
-if (-not (Test-Path $AppBin -PathType Leaf)) {
-  throw "app binary not found: $AppBin"
+$BuiltAppBin = $AppBin
+if (-not (Test-Path $BuiltAppBin -PathType Leaf)) {
+  $BuiltAppBin = $AppBinExe
+}
+if (-not (Test-Path $BuiltAppBin -PathType Leaf)) {
+  throw "app binary not found: $AppBin or $AppBinExe"
 }
 
 Write-Host "[4/4] Assembling Windows packages..."
@@ -97,7 +103,7 @@ New-Item -ItemType Directory -Force -Path $AppStage | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $AppStage "bin") | Out-Null
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
-Copy-Item $AppBin (Join-Path $AppStage "ant-chrome.exe") -Force
+Copy-Item $BuiltAppBin (Join-Path $AppStage "ant-chrome.exe") -Force
 Copy-Item $ConfigSrc (Join-Path $AppStage "config.yaml") -Force
 Copy-Item $XraySrc (Join-Path $AppStage "bin\xray.exe") -Force
 Copy-Item $SingBoxSrc (Join-Path $AppStage "bin\sing-box.exe") -Force

@@ -164,7 +164,8 @@ jobs:
           echo "Validating: $deb_file"
           dpkg-deb -I "$deb_file"
           dpkg-deb -c "$deb_file" >/dev/null
-          tar -tzf "$tar_file" | grep -q '^AntBrowser/'
+          tar -tzf "$tar_file" > /tmp/ant-browser-tar-list
+          grep -q '^AntBrowser/' /tmp/ant-browser-tar-list
 
       - name: Upload Linux release artifacts
         uses: actions/upload-artifact@v4
