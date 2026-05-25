@@ -125,6 +125,10 @@ export function BrowserProfileCreate(arg1:browser.ProfileInput):Promise<browser.
 
 export function BrowserProfileDelete(arg1:string):Promise<void>;
 
+export function BrowserProfileDeleteForever(arg1:string):Promise<void>;
+
+export function BrowserProfileDeleteWithOptions(arg1:string,arg2:boolean):Promise<void>;
+
 export function BrowserProfileGetCode(arg1:string):Promise<string>;
 
 export function BrowserProfileList():Promise<Array<browser.Profile>>;
@@ -133,9 +137,13 @@ export function BrowserProfileListByTag(arg1:string):Promise<Array<browser.Profi
 
 export function BrowserProfileRegenerateCode(arg1:string):Promise<string>;
 
+export function BrowserProfileRestore(arg1:string):Promise<browser.Profile>;
+
 export function BrowserProfileSetCode(arg1:string,arg2:string):Promise<string>;
 
 export function BrowserProfileSetKeywords(arg1:string,arg2:Array<string>):Promise<browser.Profile>;
+
+export function BrowserProfileTrashList():Promise<Array<browser.Profile>>;
 
 export function BrowserProfileUpdate(arg1:string,arg2:browser.ProfileInput):Promise<browser.Profile>;
 

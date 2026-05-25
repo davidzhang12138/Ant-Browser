@@ -40,7 +40,7 @@ func (a *App) ensureProfileBrowserApp(profile *BrowserProfile, chromeBinaryPath 
 	colorValue := browser.ResolveProfileIconColor(profile.IconColor, profile.ProfileId)
 	profile.IconColor = colorValue
 
-	displayName := profileBrowserDisplayName(profile, serial)
+	displayName := profileBrowserDisplayName(profile)
 	appDir := a.resolveAppPath(filepath.ToSlash(filepath.Join("data", "runtime", "profile-apps", safeProfileAppBundleName(displayName)+".app")))
 	contentsDir := filepath.Join(appDir, "Contents")
 	macOSDir := filepath.Join(contentsDir, "MacOS")
@@ -60,7 +60,7 @@ func (a *App) ensureProfileBrowserApp(profile *BrowserProfile, chromeBinaryPath 
 	if err := os.WriteFile(executablePath, []byte(profileBrowserLauncherScript(chromeBinaryPath)), 0o755); err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(filepath.Join(contentsDir, "Info.plist"), []byte(profileBrowserInfoPlist(profile, serial)), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(contentsDir, "Info.plist"), []byte(profileBrowserInfoPlist(profile)), 0o644); err != nil {
 		return "", err
 	}
 	return appDir, nil
@@ -74,12 +74,15 @@ func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }
 
-func profileBrowserDisplayName(profile *BrowserProfile, serial string) string {
+func profileBrowserDisplayName(profile *BrowserProfile) string {
 	profileName := ""
 	if profile != nil {
 		profileName = strings.TrimSpace(profile.ProfileName)
+		if profileName == "" {
+			profileName = strings.TrimSpace(profile.ProfileId)
+		}
 	}
-	displayName := strings.TrimSpace(strings.TrimSpace(serial) + " " + profileName)
+	displayName := profileName
 	if displayName == "" {
 		displayName = "Ant Browser"
 	}
@@ -107,9 +110,9 @@ func safeProfileAppBundleName(value string) string {
 	return safe
 }
 
-func profileBrowserInfoPlist(profile *BrowserProfile, serial string) string {
+func profileBrowserInfoPlist(profile *BrowserProfile) string {
 	bundleID := "cn.reelix.antbrowser.profile." + safeStartPageFileName(profile.ProfileId)
-	displayName := profileBrowserDisplayName(profile, serial)
+	displayName := profileBrowserDisplayName(profile)
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">

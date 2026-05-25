@@ -91,6 +91,7 @@ func TestBrowserStartPageURLWritesProfileInfoPage(t *testing.T) {
 		LastStartAt:  "2026-05-24T16:55:57+08:00",
 		FingerprintArgs: []string{
 			"--lang=en,en-US;q=0.9",
+			"--fingerprint-platform-version=11.0",
 			"--timezone=Asia/Tokyo",
 			"--user-agent=Mozilla/5.0 Test",
 		},
@@ -115,7 +116,7 @@ func TestBrowserStartPageURLWritesProfileInfoPage(t *testing.T) {
 	}
 	html := string(content)
 	for _, want := range []string{
-		"<title>408 tanikajoe90@gmail.com</title>",
+		"<title>tanikajoe90@gmail.com</title>",
 		"序号:",
 		"408",
 		"实例名称:",
@@ -135,6 +136,8 @@ func TestBrowserStartPageURLWritesProfileInfoPage(t *testing.T) {
 		"buyer-408, gmail",
 		"UserAgent:",
 		"Mozilla/5.0 Test",
+		"系统版本:",
+		"11.0",
 		"2026-05-24 16:55:57",
 		"en,en-US;q=0.9",
 		"Asia/Tokyo",
@@ -158,6 +161,41 @@ func TestBrowserStartPageURLWritesProfileInfoPage(t *testing.T) {
 	}
 }
 
+func TestBrowserStartPageURLUsesProfileIDForFileAndNameForTitle(t *testing.T) {
+	t.Parallel()
+
+	app := NewApp(t.TempDir())
+	profile := &BrowserProfile{
+		ID:          1,
+		ProfileId:   "54c603ec-9c53-4e93-bfa3-3afa948b644a",
+		ProfileName: "buyer-001",
+	}
+
+	pageURL, err := app.browserStartPageURL(profile, time.Date(2026, 5, 24, 16, 55, 57, 0, time.FixedZone("CST", 8*60*60)))
+	if err != nil {
+		t.Fatalf("browserStartPageURL returned error: %v", err)
+	}
+	parsed, err := url.Parse(pageURL)
+	if err != nil {
+		t.Fatalf("invalid start page URL %q: %v", pageURL, err)
+	}
+	if parsed.Path != "/start-pages/54c603ec-9c53-4e93-bfa3-3afa948b644a.html" {
+		t.Fatalf("start page path = %q, want profile id file name", parsed.Path)
+	}
+
+	content, err := os.ReadFile(app.resolveAppPath("data/runtime/start-pages/54c603ec-9c53-4e93-bfa3-3afa948b644a.html"))
+	if err != nil {
+		t.Fatalf("expected start page file to be readable: %v", err)
+	}
+	html := string(content)
+	if !strings.Contains(html, "<title>buyer-001</title>") {
+		t.Fatalf("start page title should use profile name without numeric id\n%s", html)
+	}
+	if !strings.Contains(html, "序号:") || !strings.Contains(html, "1") {
+		t.Fatalf("start page should still show serial number\n%s", html)
+	}
+}
+
 func TestBrowserStartPageModelDefaultsUsernameToProfileName(t *testing.T) {
 	t.Parallel()
 
@@ -168,6 +206,38 @@ func TestBrowserStartPageModelDefaultsUsernameToProfileName(t *testing.T) {
 
 	if model.Username != "buyer-001" {
 		t.Fatalf("Username = %q, want profile name fallback", model.Username)
+	}
+}
+
+func TestBrowserStartPageCopyUsernameStripsAccidentalOuterQuotes(t *testing.T) {
+	t.Parallel()
+
+	html, err := renderBrowserStartPageHTML(browserStartPageModel{
+		Title:       "buyer-001",
+		Serial:      "1",
+		ProfileName: "buyer-001",
+		Username:    `"alice@example.com"`,
+	})
+	if err != nil {
+		t.Fatalf("renderBrowserStartPageHTML() error = %v", err)
+	}
+
+	for _, want := range []string{
+		"alice@example.com",
+		`data-copy="alice@example.com"`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("start page HTML missing %q\n%s", want, html)
+		}
+	}
+	for _, notWant := range []string{
+		`"alice@example.com"<button`,
+		`copyText(&#34;`,
+		`copyText("\"`,
+	} {
+		if strings.Contains(html, notWant) {
+			t.Fatalf("start page HTML should not contain %q\n%s", notWant, html)
+		}
 	}
 }
 

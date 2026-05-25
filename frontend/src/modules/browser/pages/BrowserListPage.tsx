@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from '../../../shared/components'
 import { fetchDashboardStats, redeemCDKey, redeemGithubStar, reloadConfig } from '../../dashboard/api'
 import type { BrowserCore, BrowserCoreInput, BrowserProfile, BrowserProxy, BrowserSettings, BrowserGroupWithCount } from '../types'
 import { BrowserCoreEditorModal, BrowserListHeader, BrowserListSettingsModal, type BrowserViewMode } from '../components/BrowserListLayout'
 import { BatchToolbar } from '../components/BrowserListWidgets'
-import { BrowserProfilesPanel } from '../components/BrowserProfilesPanel'
+import { BrowserProfilesPanel, type ProfileProxyTestState } from '../components/BrowserProfilesPanel'
 import { EMPTY_FILTERS } from '../components/InstanceFilterBar'
 import type { InstanceFilters } from '../components/InstanceFilterBar'
 import type { SortOrder, SorterResult } from '../../../shared/components/Table'
@@ -12,11 +13,14 @@ import { EventsOn, BrowserOpenURL } from '../../../wailsjs/runtime/runtime'
 import { PROJECT_GITHUB_URL } from '../../../config/links'
 import { resolveActionErrorMessage, resolveActionFeedback } from '../utils/actionErrors'
 import { BrowserListDialogs } from './browserList/BrowserListDialogs'
+import { getBrowserListScrollTop, saveBrowserListReturnPath, saveBrowserListScrollTop } from '../utils/listReturnPath'
 import {
   copyBrowserProfile,
   deleteBrowserCore,
+  deleteBrowserProfileForever,
   deleteBrowserProfile,
   fetchBrowserCores,
+  fetchBrowserProfileTrash,
   fetchBrowserProfiles,
   fetchBrowserProxies,
   fetchBrowserSettings,
@@ -28,6 +32,9 @@ import {
   startBrowserInstance,
   startBrowserInstanceDirect,
   stopBrowserInstance,
+  restoreBrowserProfile,
+  browserProxyTestSpeed,
+  testProxyConnectivity,
   validateBrowserCorePath,
   validateProxyConfig,
 } from '../api'
@@ -75,6 +82,11 @@ const getTimeValue = (value?: string) => {
 
 const getProfileNumericId = (profile: BrowserProfile) => Number(profile.id || 0)
 
+const readPositiveInt = (value: string | null | undefined, fallback: number) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+}
+
 const compareProfileId = (a: BrowserProfile, b: BrowserProfile) => {
   const idDiff = getProfileNumericId(a) - getProfileNumericId(b)
   if (idDiff !== 0) return idDiff
@@ -82,6 +94,7 @@ const compareProfileId = (a: BrowserProfile, b: BrowserProfile) => {
 }
 
 export function BrowserListPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [profiles, setProfiles] = useState<BrowserProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [proxies, setProxies] = useState<BrowserProxy[]>([])
@@ -95,10 +108,14 @@ export function BrowserListPage() {
   // 勾选状态
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [batchLoading, setBatchLoading] = useState(false)
+  const [proxyTestStates, setProxyTestStates] = useState<Record<string, ProfileProxyTestState>>({})
   const [sortColumn, setSortColumn] = useState('serial')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const [currentPage, setCurrentPage] = useState(() => readPositiveInt(searchParams.get('page'), 1))
+  const [pageSize, setPageSizeState] = useState(() => readPositiveInt(searchParams.get('pageSize'), 10))
+  const didMountPaginationResetRef = useRef(false)
+  const pageScrollRef = useRef<HTMLDivElement | null>(null)
+  const didRestoreScrollRef = useRef(false)
 
   // 筛选状态（从 localStorage 恢复）
   const [filters, setFilters] = useState<InstanceFilters>(() => {
@@ -129,6 +146,11 @@ export function BrowserListPage() {
     localStorage.setItem('browser:headerCollapsed', String(headerCollapsed))
   }, [headerCollapsed])
 
+  useEffect(() => {
+    const path = `${window.location.pathname}${window.location.search}`
+    saveBrowserListReturnPath(path)
+  }, [searchParams])
+
   // 代理不支持弹窗
   const [proxyErrorModal, setProxyErrorModal] = useState(false)
   const [proxyErrorMsg, setProxyErrorMsg] = useState('')
@@ -149,6 +171,12 @@ export function BrowserListPage() {
   const [copyModal, setCopyModal] = useState<{ open: boolean; profile: BrowserProfile | null }>({ open: false, profile: null })
   const [copyName, setCopyName] = useState('')
   const [copying, setCopying] = useState(false)
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; ids: string[]; names: string[] }>({ open: false, ids: [], names: [] })
+  const [deleting, setDeleting] = useState(false)
+  const [trashOpen, setTrashOpen] = useState(false)
+  const [trashProfiles, setTrashProfiles] = useState<BrowserProfile[]>([])
+  const [trashLoading, setTrashLoading] = useState(false)
+  const [trashActionId, setTrashActionId] = useState<string | null>(null)
 
   const openCopyModal = (profile: BrowserProfile) => {
     setCopyName(profile.profileName + ' (副本)')
@@ -157,6 +185,20 @@ export function BrowserListPage() {
   const closeCopyModal = () => {
     setCopyModal({ open: false, profile: null })
     setCopyName('')
+  }
+
+  const openDeleteModal = (items: BrowserProfile[]) => {
+    setDeleteModal({
+      open: true,
+      ids: items.map(item => item.profileId),
+      names: items.map(item => item.profileName),
+    })
+  }
+
+  const closeDeleteModal = () => {
+    if (!deleting) {
+      setDeleteModal({ open: false, ids: [], names: [] })
+    }
   }
 
   // 基础配置弹窗
@@ -202,6 +244,23 @@ export function BrowserListPage() {
       }
       return next
     })
+  }
+
+  const setListPagination = (page: number, size = pageSize) => {
+    const nextPage = Math.max(1, Math.floor(page || 1))
+    const nextSize = Math.max(1, Math.floor(size || 10))
+    setCurrentPage(nextPage)
+    setPageSizeState(nextSize)
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('page', String(nextPage))
+      next.set('pageSize', String(nextSize))
+      return next
+    }, { replace: true })
+  }
+
+  const handlePageSizeChange = (size: number) => {
+    setListPagination(1, size)
   }
 
   const replaceProfilesState = (items: BrowserProfile[]) => {
@@ -377,6 +436,50 @@ export function BrowserListPage() {
     resolveProfileStatus(profile.running, profile.debugReady, isProfileStarting(profile.profileId), isProfileStopping(profile.profileId))
   )
 
+  const handleTestProfileProxy = async (profile: BrowserProfile) => {
+    const proxy = proxies.find(item => item.proxyId === profile.proxyId)
+    const proxyConfig = (proxy?.proxyConfig || profile.proxyConfig || '').trim()
+    const proxyId = (profile.proxyId || '').trim()
+
+    if (!proxyId && !proxyConfig) {
+      toast.info('该实例未配置代理')
+      return
+    }
+    if (proxyConfig === 'direct://') {
+      toast.info('直连模式无需检测')
+      return
+    }
+    if (proxyTestStates[profile.profileId]?.loading) return
+
+    setProxyTestStates(prev => ({ ...prev, [profile.profileId]: { loading: true } }))
+    try {
+      const result = proxyId
+        ? await browserProxyTestSpeed(proxyId)
+        : await testProxyConnectivity('', proxyConfig)
+      setProxyTestStates(prev => ({
+        ...prev,
+        [profile.profileId]: {
+          loading: false,
+          ok: result.ok,
+          latencyMs: result.latencyMs,
+          error: result.error,
+        },
+      }))
+      if (result.ok) {
+        toast.success(`代理可用：${result.latencyMs} ms`)
+      } else {
+        toast.error(result.error || '代理检测失败')
+      }
+    } catch (error: any) {
+      const message = error?.message || '代理检测失败'
+      setProxyTestStates(prev => ({
+        ...prev,
+        [profile.profileId]: { loading: false, ok: false, latencyMs: 0, error: message },
+      }))
+      toast.error(message)
+    }
+  }
+
   const filteredProfiles = useMemo(() => {
     return profiles.filter(p => {
       // 分组筛选
@@ -446,17 +549,35 @@ export function BrowserListPage() {
   const totalPages = Math.max(1, Math.ceil(sortedProfiles.length / pageSize))
 
   useEffect(() => {
-    setCurrentPage(prev => Math.min(Math.max(prev, 1), totalPages))
-  }, [totalPages])
+    if (!loading && currentPage > totalPages) {
+      setListPagination(totalPages)
+    }
+  }, [loading, totalPages])
 
   useEffect(() => {
-    setCurrentPage(1)
+    if (!didMountPaginationResetRef.current) {
+      didMountPaginationResetRef.current = true
+      return
+    }
+    setListPagination(1)
   }, [filters, pageSize, sortColumn, sortOrder])
 
   const pagedProfiles = useMemo(() => {
     const start = (currentPage - 1) * pageSize
     return sortedProfiles.slice(start, start + pageSize)
   }, [sortedProfiles, currentPage, pageSize])
+
+  useEffect(() => {
+    if (loading || didRestoreScrollRef.current) return
+    didRestoreScrollRef.current = true
+    const scrollTop = getBrowserListScrollTop()
+    if (scrollTop <= 0) return
+    window.requestAnimationFrame(() => {
+      if (pageScrollRef.current) {
+        pageScrollRef.current.scrollTop = scrollTop
+      }
+    })
+  }, [loading, pagedProfiles.length])
 
   const handleSortChange = ({ column, order }: SorterResult) => {
     setSortColumn(column)
@@ -561,10 +682,78 @@ export function BrowserListPage() {
     }
   }
 
-  const handleDelete = async (profileId: string) => {
-    await deleteBrowserProfile(profileId)
-    toast.success('配置已删除')
-    loadProfiles()
+  const handleDelete = (profileId: string) => {
+    const profile = profiles.find(p => p.profileId === profileId)
+    if (profile) {
+      openDeleteModal([profile])
+    }
+  }
+
+  const confirmDeleteProfiles = async (skipTrash: boolean) => {
+    const ids = deleteModal.ids
+    if (ids.length === 0) return
+    setDeleting(true)
+    try {
+      for (const id of ids) {
+        await deleteBrowserProfile(id, skipTrash)
+      }
+      setSelectedIds(new Set())
+      setDeleteModal({ open: false, ids: [], names: [] })
+      toast.success(skipTrash ? `已彻底删除 ${ids.length} 个实例` : `已移入回收站，默认保留 30 天`)
+      await loadProfiles()
+      if (trashOpen) {
+        await loadTrashProfiles()
+      }
+    } catch (error: any) {
+      setOpError(typeof error === 'string' ? error : error?.message || '删除失败')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const loadTrashProfiles = async () => {
+    setTrashLoading(true)
+    try {
+      setTrashProfiles(await fetchBrowserProfileTrash())
+    } catch (error: any) {
+      setOpError(typeof error === 'string' ? error : error?.message || '回收站加载失败')
+    } finally {
+      setTrashLoading(false)
+    }
+  }
+
+  const openTrashModal = async () => {
+    setTrashOpen(true)
+    await loadTrashProfiles()
+  }
+
+  const handleRestoreFromTrash = async (profileId: string) => {
+    if (trashActionId) return
+    setTrashActionId(profileId)
+    try {
+      await restoreBrowserProfile(profileId)
+      toast.success('实例已恢复')
+      await Promise.all([loadProfiles(), loadTrashProfiles()])
+    } catch (error: any) {
+      setOpError(typeof error === 'string' ? error : error?.message || '恢复失败')
+    } finally {
+      setTrashActionId(null)
+    }
+  }
+
+  const handleDeleteForeverFromTrash = async (profileId: string) => {
+    if (trashActionId) return
+    if (!confirm('确定彻底删除该实例？实例数据目录也会被删除，此操作不可恢复。')) return
+    setTrashActionId(profileId)
+    try {
+      await deleteBrowserProfileForever(profileId)
+      toast.success('实例已彻底删除')
+      await Promise.all([loadProfiles(), loadTrashProfiles()])
+    } catch (error: any) {
+      setOpError(typeof error === 'string' ? error : error?.message || '彻底删除失败')
+    } finally {
+      setTrashActionId(null)
+    }
   }
 
   // 批量操作
@@ -659,15 +848,8 @@ export function BrowserListPage() {
   const handleBatchDelete = async () => {
     const ids = Array.from(selectedIds)
     if (ids.length === 0) return
-    if (!confirm(`确定删除选中的 ${ids.length} 个实例？`)) return
-    setBatchLoading(true)
-    for (const id of ids) {
-      await deleteBrowserProfile(id)
-    }
-    setBatchLoading(false)
-    setSelectedIds(new Set())
-    toast.success(`已删除 ${ids.length} 个实例`)
-    loadProfiles()
+    const selected = profiles.filter(p => selectedIds.has(p.profileId))
+    openDeleteModal(selected)
   }
 
   const handleCopy = async (profileId: string) => {
@@ -797,7 +979,11 @@ export function BrowserListPage() {
 
 
   return (
-    <div className="overflow-auto p-5 space-y-5 animate-fade-in h-full">
+    <div
+      ref={pageScrollRef}
+      className="overflow-auto p-5 space-y-5 animate-fade-in h-full"
+      onScroll={(event) => saveBrowserListScrollTop(event.currentTarget.scrollTop)}
+    >
       <BrowserListHeader
         profileCount={profiles.length}
         filteredProfileCount={filteredProfiles.length}
@@ -811,6 +997,7 @@ export function BrowserListPage() {
         onFiltersChange={setFilters}
         onToggleHeaderCollapsed={() => setHeaderCollapsed((prev) => !prev)}
         onRefresh={() => { void loadProfiles() }}
+        onOpenTrash={() => { void openTrashModal() }}
         onOpenSettings={handleOpenSettings}
         onOpenExpandModal={() => {
           setCdKey('')
@@ -851,15 +1038,17 @@ export function BrowserListPage() {
         isProfileStarting={isProfileStarting}
         isProfileStopping={isProfileStopping}
         isProfileBusy={isProfileBusy}
+        proxyTestStates={proxyTestStates}
         onToggleSelect={toggleSelect}
         onSelectAll={handleSelectAll}
         onDeselectAll={handleDeselectAll}
         onSortChange={handleSortChange}
-        onPageChange={setCurrentPage}
-        onPageSizeChange={setPageSize}
+        onPageChange={(page) => setListPagination(page)}
+        onPageSizeChange={handlePageSizeChange}
         onStart={(profileId) => { void handleStart(profileId) }}
         onStop={(profileId) => { void handleStop(profileId) }}
         onRestart={(profileId) => { void handleRestart(profileId) }}
+        onTestProxy={(profile) => { void handleTestProfileProxy(profile) }}
         onOpenKeywords={openKwModal}
         onOpenCopy={openCopyModal}
         onDelete={(profileId) => { void handleDelete(profileId) }}
@@ -937,6 +1126,21 @@ export function BrowserListPage() {
         onCloseCopy={closeCopyModal}
         onConfirmCopy={() => copyModal.profile && handleCopy(copyModal.profile.profileId)}
         copying={copying}
+        deleteModal={deleteModal}
+        deleting={deleting}
+        onCloseDelete={closeDeleteModal}
+        onConfirmDelete={(skipTrash) => { void confirmDeleteProfiles(skipTrash) }}
+        trashOpen={trashOpen}
+        trashProfiles={trashProfiles}
+        trashCores={cores}
+        trashProxies={proxies}
+        trashGroups={groups}
+        trashLoading={trashLoading}
+        trashActionId={trashActionId}
+        onCloseTrash={() => setTrashOpen(false)}
+        onRefreshTrash={() => { void loadTrashProfiles() }}
+        onRestoreTrash={(profileId) => { void handleRestoreFromTrash(profileId) }}
+        onDeleteForeverTrash={(profileId) => { void handleDeleteForeverFromTrash(profileId) }}
         opError={opError}
         onCloseOpError={() => setOpError('')}
       />

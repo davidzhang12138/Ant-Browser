@@ -21,6 +21,9 @@ type BrowserCoreExtendedInfo = browser.CoreExtendedInfo
 // BrowserProfileList 获取所有实例列表
 func (a *App) BrowserProfileList() []BrowserProfile { return a.browserMgr.List() }
 
+// BrowserProfileTrashList 获取回收站实例列表
+func (a *App) BrowserProfileTrashList() []BrowserProfile { return a.browserMgr.TrashList() }
+
 // BrowserProfileListByTag 按标签筛选实例列表
 func (a *App) BrowserProfileListByTag(tag string) []BrowserProfile {
 	return a.browserMgr.ListByTag(tag)
@@ -45,6 +48,18 @@ func (a *App) BrowserProfileUpdate(profileId string, input BrowserProfileInput) 
 }
 
 func (a *App) BrowserProfileDelete(profileId string) error { return a.browserMgr.Delete(profileId) }
+
+func (a *App) BrowserProfileDeleteWithOptions(profileId string, skipTrash bool) error {
+	return a.browserMgr.DeleteWithOptions(profileId, skipTrash)
+}
+
+func (a *App) BrowserProfileRestore(profileId string) (*BrowserProfile, error) {
+	return a.browserMgr.Restore(profileId)
+}
+
+func (a *App) BrowserProfileDeleteForever(profileId string) error {
+	return a.browserMgr.DeleteForever(profileId)
+}
 
 // BrowserProfileCopy 复制实例配置（除指纹参数外全部复制）
 func (a *App) BrowserProfileCopy(profileId string, newName string) (*BrowserProfile, error) {

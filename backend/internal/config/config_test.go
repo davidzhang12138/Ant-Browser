@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 )
 
@@ -108,20 +109,29 @@ browser: {}
 func TestDefaultFingerprintArgsForOS(t *testing.T) {
 	t.Parallel()
 
-	tests := map[string]string{
-		"windows": "--fingerprint-platform=windows",
-		"linux":   "--fingerprint-platform=linux",
-		"darwin":  "--fingerprint-platform=macos",
-		"freebsd": "--fingerprint-platform=windows",
+	tests := map[string]struct {
+		platform        string
+		platformVersion string
+	}{
+		"windows": {platform: "--fingerprint-platform=windows", platformVersion: "--fingerprint-platform-version=11.0"},
+		"linux":   {platform: "--fingerprint-platform=linux", platformVersion: "--fingerprint-platform-version=x86_64"},
+		"darwin":  {platform: "--fingerprint-platform=macos", platformVersion: "--fingerprint-platform-version=14_5"},
+		"freebsd": {platform: "--fingerprint-platform=windows", platformVersion: "--fingerprint-platform-version=11.0"},
 	}
 
 	for goos, want := range tests {
 		got := defaultFingerprintArgsForOS(goos)
-		if len(got) < 2 {
+		if len(got) < 3 {
 			t.Fatalf("%s: unexpected args length: got=%v", goos, got)
 		}
-		if got[1] != want {
-			t.Fatalf("%s: platform arg mismatch: got=%q want=%q", goos, got[1], want)
+		if got[1] != want.platform {
+			t.Fatalf("%s: platform arg mismatch: got=%q want=%q", goos, got[1], want.platform)
+		}
+		if got[2] != want.platformVersion {
+			t.Fatalf("%s: platform version arg mismatch: got=%q want=%q", goos, got[2], want.platformVersion)
+		}
+		if goos == "windows" && !slices.Contains(got, "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36") {
+			t.Fatalf("%s: Windows 11 default should keep Chromium legacy UA token: got=%v", goos, got)
 		}
 	}
 }

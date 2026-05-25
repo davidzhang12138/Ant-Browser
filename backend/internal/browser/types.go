@@ -43,6 +43,8 @@ type Profile struct {
 	UpdatedAt          string   `json:"updatedAt"`
 	LastStartAt        string   `json:"lastStartAt"`
 	LastStopAt         string   `json:"lastStopAt"`
+	DeletedAt          string   `json:"deletedAt,omitempty"`
+	DeleteAfterAt      string   `json:"deleteAfterAt,omitempty"`
 }
 
 // ProfileInput 创建/更新配置文件的输入

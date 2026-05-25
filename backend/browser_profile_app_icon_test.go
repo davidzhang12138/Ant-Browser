@@ -66,7 +66,7 @@ func TestEnsureProfileBrowserAppUsesInstanceNameForBundlePath(t *testing.T) {
 		t.Fatalf("ensureProfileBrowserApp() error = %v", err)
 	}
 
-	if got := filepath.Base(appPath); got != "376 tanikajoe90@gmail.com.app" {
+	if got := filepath.Base(appPath); got != "tanikajoe90@gmail.com.app" {
 		t.Fatalf("app bundle name = %q, want instance name", got)
 	}
 }

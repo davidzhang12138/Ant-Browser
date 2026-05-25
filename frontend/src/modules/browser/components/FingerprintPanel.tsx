@@ -46,6 +46,14 @@ const BROWSER_MAJOR_OPTIONS = [
   { value: '135', label: '135' },
 ]
 
+function getBrowserMajorOptions(currentMajor?: string) {
+  const normalizedMajor = (currentMajor || '').trim()
+  if (!normalizedMajor || BROWSER_MAJOR_OPTIONS.some(option => option.value === normalizedMajor)) {
+    return BROWSER_MAJOR_OPTIONS
+  }
+  return [{ value: normalizedMajor, label: normalizedMajor }, ...BROWSER_MAJOR_OPTIONS]
+}
+
 const OS_VERSION_OPTIONS: Record<string, { value: string; label: string }[]> = {
   windows: [
     { value: '11.0', label: 'Windows 11' },
@@ -54,9 +62,11 @@ const OS_VERSION_OPTIONS: Record<string, { value: string; label: string }[]> = {
     { value: '6.1', label: 'Windows 7' },
   ],
   macos: [
+    { value: '15_0', label: 'macOS 15.0' },
     { value: '14_5', label: 'macOS 14.5' },
     { value: '13_6', label: 'macOS 13.6' },
     { value: '12_7', label: 'macOS 12.7' },
+    { value: '11.0', label: 'macOS 11.0' },
   ],
   linux: [
     { value: 'x86_64', label: 'Linux x86_64' },
@@ -400,7 +410,7 @@ export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
             />
           </FormItem>
           <FormItem label="浏览器大版本">
-            <Select value={config.browserMajor ?? '139'} onChange={e => updateUA({ browserMajor: e.target.value || '139' })} options={BROWSER_MAJOR_OPTIONS} />
+            <Select value={config.browserMajor ?? '139'} onChange={e => updateUA({ browserMajor: e.target.value || '139' })} options={getBrowserMajorOptions(config.browserMajor)} />
           </FormItem>
           <FormItem label="语言">
             <Select value={config.lang ?? 'ip'} onChange={e => update({ lang: e.target.value || 'ip' })} options={LANG_OPTIONS} />

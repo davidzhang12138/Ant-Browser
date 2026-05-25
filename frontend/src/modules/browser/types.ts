@@ -32,6 +32,8 @@ export interface BrowserProfile {
   updatedAt: string
   lastStartAt?: string
   lastStopAt?: string
+  deletedAt?: string
+  deleteAfterAt?: string
   launchCode?: string
 }
 

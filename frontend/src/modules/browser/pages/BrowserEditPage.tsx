@@ -3,12 +3,13 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { FolderOpen, Layers } from 'lucide-react'
 import { Button, Card, ConfirmModal, FormItem, Input, Modal, Select, Textarea, toast } from '../../../shared/components'
 import type { BrowserCore, BrowserProfileInput, BrowserProxy, BrowserGroup } from '../types'
-import { createBrowserProfile, fetchAllTags, fetchBrowserCores, fetchBrowserProfiles, fetchBrowserProxies, fetchBrowserSettings, fetchGroups, openUserDataDir, updateBrowserProfile } from '../api'
+import { createBrowserProfile, fetchAllTags, fetchBrowserCores, fetchBrowserProfiles, fetchBrowserProxies, fetchBrowserSettings, fetchCoreExtendedInfo, fetchGroups, openUserDataDir, updateBrowserProfile } from '../api'
 import { FingerprintPanel } from '../components/FingerprintPanel'
 import { TagInput } from '../components/TagInput'
 import { GroupSelector } from '../components/GroupSelector'
 import { ProxyPickerModal } from '../components/ProxyPickerModal'
-import { createRandomizedFingerprintConfig, deserialize, serialize } from '../utils/fingerprintSerializer'
+import { applyBrowserMajor, browserMajorFromChromeVersion, createRandomizedFingerprintConfig, deserialize, serialize } from '../utils/fingerprintSerializer'
+import { getBrowserListReturnPath } from '../utils/listReturnPath'
 
 const fallbackLowLaunchArgs = ['--disable-sync', '--no-first-run']
 const directProxyID = '__direct__'
@@ -59,6 +60,24 @@ function resolvePoolProxySelection(
   return { proxyId: directProxy?.proxyId || '', proxyConfig: '' }
 }
 
+function resolveCoreChromeVersion(
+  coreId: string,
+  cores: BrowserCore[],
+  coreChromeVersions: Record<string, string>,
+): string {
+  const normalizedCoreId = coreId.trim()
+  const core = normalizedCoreId
+    ? cores.find(item => item.coreId === normalizedCoreId)
+    : cores.find(item => item.isDefault)
+  return core ? coreChromeVersions[core.coreId] || '' : ''
+}
+
+function applyCoreVersionToFingerprintArgs(args: string[], chromeVersion: string): string[] {
+  const browserMajor = browserMajorFromChromeVersion(chromeVersion)
+  if (!browserMajor) return args
+  return serialize(applyBrowserMajor(deserialize(args), browserMajor))
+}
+
 export function BrowserEditPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -83,6 +102,7 @@ export function BrowserEditPage() {
     groupId: '',
   })
   const [cores, setCores] = useState<BrowserCore[]>([])
+  const [coreChromeVersions, setCoreChromeVersions] = useState<Record<string, string>>({})
   const [proxies, setProxies] = useState<BrowserProxy[]>([])
   const [groups, setGroups] = useState<BrowserGroup[]>([])
   const [launchArgsText, setLaunchArgsText] = useState('')
@@ -95,22 +115,30 @@ export function BrowserEditPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      const [coreList, proxyList, tagList, groupList, settings] = await Promise.all([
+      const [coreList, proxyList, tagList, groupList, settings, coreExtendedInfo] = await Promise.all([
         fetchBrowserCores(),
         fetchBrowserProxies(),
         fetchAllTags(),
         fetchGroups(),
         fetchBrowserSettings(),
+        fetchCoreExtendedInfo(),
       ])
       const resolvedDefaultLaunchArgs = resolveDefaultLaunchArgs(settings.defaultLaunchArgs || [])
+      const nextCoreChromeVersions = Object.fromEntries(coreExtendedInfo.map(info => [info.coreId, info.chromeVersion || '']))
       setCores(coreList)
+      setCoreChromeVersions(nextCoreChromeVersions)
       setProxies(proxyList)
       setAllTags(tagList)
       setGroups(groupList)
 
       if (isCreate) {
         const resolved = resolvePoolProxySelection('', '', proxyList)
-        const randomizedFingerprintArgs = serialize(createRandomizedFingerprintConfig(deserialize(settings.defaultFingerprintArgs || [])))
+        const defaultCoreChromeVersion = resolveCoreChromeVersion('', coreList, nextCoreChromeVersions)
+        const defaultBrowserMajor = browserMajorFromChromeVersion(defaultCoreChromeVersion)
+        const baseFingerprintConfig = deserialize(settings.defaultFingerprintArgs || [])
+        const randomizedFingerprintArgs = serialize(createRandomizedFingerprintConfig(
+          defaultBrowserMajor ? applyBrowserMajor(baseFingerprintConfig, defaultBrowserMajor) : baseFingerprintConfig,
+        ))
         setFormData((prev) => ({
           ...prev,
           proxyId: resolved.proxyId || directProxyID,
@@ -127,6 +155,7 @@ export function BrowserEditPage() {
       const normalizedCoreId = !current.coreId || current.coreId.toLowerCase() === 'default'
         ? ''
         : current.coreId
+      const currentCoreChromeVersion = resolveCoreChromeVersion(normalizedCoreId, coreList, nextCoreChromeVersions)
       const resolvedProxy = resolvePoolProxySelection(current.proxyId || '', current.proxyConfig || '', proxyList)
       setFormData({
         profileName: current.profileName,
@@ -137,7 +166,7 @@ export function BrowserEditPage() {
         platformUrl: current.platformUrl || '',
         userDataDir: current.userDataDir,
         coreId: normalizedCoreId,
-        fingerprintArgs: current.fingerprintArgs,
+        fingerprintArgs: applyCoreVersionToFingerprintArgs(current.fingerprintArgs, currentCoreChromeVersion),
         proxyId: resolvedProxy.proxyId,
         proxyConfig: resolvedProxy.proxyConfig,
         launchArgs: currentLaunchArgs,
@@ -176,6 +205,18 @@ export function BrowserEditPage() {
     }))
   }
 
+  const handleCoreChange = (coreId: string) => {
+    setIsDirty(true)
+    setFormData(prev => ({
+      ...prev,
+      coreId,
+      fingerprintArgs: applyCoreVersionToFingerprintArgs(
+        prev.fingerprintArgs,
+        resolveCoreChromeVersion(coreId, cores, coreChromeVersions),
+      ),
+    }))
+  }
+
   const handleSave = async () => {
     setSaving(true)
     const resolvedProxyId = (formData.proxyId || '').trim()
@@ -211,7 +252,7 @@ export function BrowserEditPage() {
         toast.success('配置已更新')
       }
       setIsDirty(false)
-      navigate('/browser/list')
+      navigate(getBrowserListReturnPath())
     } catch (error: any) {
       setSaveError(typeof error === 'string' ? error : error?.message || '保存失败')
     } finally {
@@ -220,7 +261,7 @@ export function BrowserEditPage() {
   }
 
   const handleBack = () => {
-    if (isDirty) { setLeaveConfirm(true) } else { navigate('/browser/list') }
+    if (isDirty) { setLeaveConfirm(true) } else { navigate(getBrowserListReturnPath()) }
   }
 
   const defaultCore = cores.find(c => c.isDefault)
@@ -346,7 +387,7 @@ export function BrowserEditPage() {
           <FormItem label="内核">
             <Select
               value={formData.coreId}
-              onChange={e => handleChange('coreId', e.target.value)}
+              onChange={e => handleCoreChange(e.target.value)}
               options={
                 cores.length > 0 ? [
                   { value: '', label: defaultCore ? `使用默认 (${defaultCore.coreName})` : '使用默认内核' },
@@ -447,7 +488,7 @@ export function BrowserEditPage() {
       <ConfirmModal
         open={leaveConfirm}
         onClose={() => setLeaveConfirm(false)}
-        onConfirm={() => navigate('/browser/list')}
+        onConfirm={() => navigate(getBrowserListReturnPath())}
         title="放弃未保存的更改？"
         content="当前页面有未保存的修改，离开后将丢失这些更改。"
         confirmText="放弃并离开"

@@ -1,5 +1,5 @@
 import type { BrowserProfile, BrowserProfileInput } from '../types'
-import { getBindings, getMockProfiles, nowISOString, setMockProfiles } from './runtime'
+import { getBindings, getMockProfiles, getMockTrashProfiles, nowISOString, setMockProfiles, setMockTrashProfiles } from './runtime'
 
 export async function fetchBrowserProfiles(): Promise<BrowserProfile[]> {
   const bindings: any = await getBindings()
@@ -7,6 +7,14 @@ export async function fetchBrowserProfiles(): Promise<BrowserProfile[]> {
     return (await bindings.BrowserProfileList()) || []
   }
   return getMockProfiles()
+}
+
+export async function fetchBrowserProfileTrash(): Promise<BrowserProfile[]> {
+  const bindings: any = await getBindings()
+  if (bindings?.BrowserProfileTrashList) {
+    return (await bindings.BrowserProfileTrashList()) || []
+  }
+  return getMockTrashProfiles()
 }
 
 export async function fetchBrowserProfilesByTag(tag: string): Promise<BrowserProfile[]> {
@@ -69,14 +77,51 @@ export async function updateBrowserProfile(profileId: string, input: BrowserProf
   return nextProfiles[index]
 }
 
-export async function deleteBrowserProfile(profileId: string): Promise<boolean> {
+export async function deleteBrowserProfile(profileId: string, skipTrash = false): Promise<boolean> {
   const bindings: any = await getBindings()
+  if (bindings?.BrowserProfileDeleteWithOptions) {
+    await bindings.BrowserProfileDeleteWithOptions(profileId, skipTrash)
+    return true
+  }
   if (bindings?.BrowserProfileDelete) {
     await bindings.BrowserProfileDelete(profileId)
     return true
   }
 
+  const profiles = getMockProfiles()
+  const deleted = profiles.find((item) => item.profileId === profileId)
+  setMockProfiles(profiles.filter((item) => item.profileId !== profileId))
+  if (deleted && !skipTrash) {
+    const deletedAt = nowISOString()
+    const deleteAfterAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    setMockTrashProfiles([{ ...deleted, deletedAt, deleteAfterAt }, ...getMockTrashProfiles()])
+  }
+  return true
+}
+
+export async function restoreBrowserProfile(profileId: string): Promise<BrowserProfile | null> {
+  const bindings: any = await getBindings()
+  if (bindings?.BrowserProfileRestore) {
+    return (await bindings.BrowserProfileRestore(profileId)) || null
+  }
+
+  const trash = getMockTrashProfiles()
+  const restored = trash.find((item) => item.profileId === profileId)
+  if (!restored) return null
+  setMockTrashProfiles(trash.filter((item) => item.profileId !== profileId))
+  const { deletedAt: _deletedAt, deleteAfterAt: _deleteAfterAt, ...active } = restored
+  setMockProfiles([active, ...getMockProfiles()])
+  return active
+}
+
+export async function deleteBrowserProfileForever(profileId: string): Promise<boolean> {
+  const bindings: any = await getBindings()
+  if (bindings?.BrowserProfileDeleteForever) {
+    await bindings.BrowserProfileDeleteForever(profileId)
+    return true
+  }
   setMockProfiles(getMockProfiles().filter((item) => item.profileId !== profileId))
+  setMockTrashProfiles(getMockTrashProfiles().filter((item) => item.profileId !== profileId))
   return true
 }
 

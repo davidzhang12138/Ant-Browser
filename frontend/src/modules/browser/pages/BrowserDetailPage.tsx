@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Copy, Globe, Play, RefreshCw, RotateCcw, Square } from 'lucide-react'
 import { Badge, Button, Card, Input, Table, toast } from '../../../shared/components'
 import type { TableColumn } from '../../../shared/components/Table'
@@ -17,6 +17,7 @@ import {
 import { CookieManagerCard } from '../components/CookieManagerCard'
 import { SnapshotTab } from '../components/SnapshotTab'
 import { resolveActionErrorMessage, resolveActionFeedback } from '../utils/actionErrors'
+import { getBrowserListReturnPath } from '../utils/listReturnPath'
 
 const resolveRuntimeStatus = (running: boolean, debugReady: boolean) => {
   if (!running) return { variant: 'warning' as const, label: '已停止' }
@@ -40,6 +41,7 @@ const TABS: { key: TabKey; label: string }[] = [
 
 export function BrowserDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [profile, setProfile] = useState<BrowserProfile | null>(null)
   const [tabs, setTabs] = useState<BrowserTab[]>([])
   const [targetUrl, setTargetUrl] = useState('https://example.com')
@@ -198,9 +200,7 @@ export function BrowserDetailPage() {
           <Link to={`/browser/edit/${profile.profileId}`}>
             <Button variant="secondary" size="sm">编辑配置</Button>
           </Link>
-          <Link to="/browser/list">
-            <Button variant="ghost" size="sm">返回列表</Button>
-          </Link>
+          <Button variant="ghost" size="sm" onClick={() => navigate(getBrowserListReturnPath())}>返回列表</Button>
         </div>
       </div>
 

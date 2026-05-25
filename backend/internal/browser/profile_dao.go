@@ -12,8 +12,12 @@ import (
 // ProfileDAO 实例配置持久化接口
 type ProfileDAO interface {
 	List() ([]*Profile, error)
+	ListTrash() ([]*Profile, error)
 	GetById(profileId string) (*Profile, error)
+	GetAnyById(profileId string) (*Profile, error)
 	Upsert(profile *Profile) error
+	MarkDeleted(profileId string, deletedAt string, deleteAfterAt string) error
+	Restore(profileId string) error
 	Delete(profileId string) error
 }
 
@@ -27,19 +31,25 @@ func NewSQLiteProfileDAO(db *sql.DB) *SQLiteProfileDAO {
 	return &SQLiteProfileDAO{db: db}
 }
 
+const profileSelectColumns = `
+	rowid, profile_id, profile_name, COALESCE(username, ''),
+	COALESCE(password, ''), COALESCE(platform, ''), COALESCE(platform_name, ''), COALESCE(platform_url, ''),
+	user_data_dir, core_id,
+	fingerprint_args, proxy_id, proxy_config,
+	COALESCE(proxy_bind_source_id, ''), COALESCE(proxy_bind_source_url, ''),
+	COALESCE(proxy_bind_name, ''), COALESCE(proxy_bind_updated_at, ''),
+	launch_args,
+	tags, keywords, COALESCE(two_fa_secret, ''), COALESCE(icon_color, ''), group_id, created_at, updated_at,
+	COALESCE(last_start_at, ''), COALESCE(last_stop_at, ''),
+	COALESCE(deleted_at, ''), COALESCE(delete_after_at, '')
+`
+
 // List 查询所有实例配置，按创建时间升序
 func (d *SQLiteProfileDAO) List() ([]*Profile, error) {
-	rows, err := d.db.Query(`
-		SELECT rowid, profile_id, profile_name, COALESCE(username, ''),
-		       COALESCE(password, ''), COALESCE(platform, ''), COALESCE(platform_name, ''), COALESCE(platform_url, ''),
-		       user_data_dir, core_id,
-		       fingerprint_args, proxy_id, proxy_config,
-		       COALESCE(proxy_bind_source_id, ''), COALESCE(proxy_bind_source_url, ''),
-		       COALESCE(proxy_bind_name, ''), COALESCE(proxy_bind_updated_at, ''),
-		       launch_args,
-		       tags, keywords, COALESCE(two_fa_secret, ''), COALESCE(icon_color, ''), group_id, created_at, updated_at,
-		       COALESCE(last_start_at, ''), COALESCE(last_stop_at, '')
-		FROM browser_profiles ORDER BY rowid ASC`)
+	rows, err := d.db.Query(`SELECT ` + profileSelectColumns + `
+		FROM browser_profiles
+		WHERE COALESCE(deleted_at, '') = ''
+		ORDER BY rowid ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("查询实例列表失败: %w", err)
 	}
@@ -56,19 +66,45 @@ func (d *SQLiteProfileDAO) List() ([]*Profile, error) {
 	return list, rows.Err()
 }
 
+// ListTrash 查询回收站实例配置，按删除时间倒序
+func (d *SQLiteProfileDAO) ListTrash() ([]*Profile, error) {
+	rows, err := d.db.Query(`SELECT ` + profileSelectColumns + `
+		FROM browser_profiles
+		WHERE COALESCE(deleted_at, '') <> ''
+		ORDER BY deleted_at DESC, rowid DESC`)
+	if err != nil {
+		return nil, fmt.Errorf("查询回收站实例列表失败: %w", err)
+	}
+	defer rows.Close()
+
+	var list []*Profile
+	for rows.Next() {
+		p, err := scanProfile(rows)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, p)
+	}
+	return list, rows.Err()
+}
+
 // GetById 根据 profileId 查询单个实例
 func (d *SQLiteProfileDAO) GetById(profileId string) (*Profile, error) {
-	row := d.db.QueryRow(`
-		SELECT rowid, profile_id, profile_name, COALESCE(username, ''),
-		       COALESCE(password, ''), COALESCE(platform, ''), COALESCE(platform_name, ''), COALESCE(platform_url, ''),
-		       user_data_dir, core_id,
-		       fingerprint_args, proxy_id, proxy_config,
-		       COALESCE(proxy_bind_source_id, ''), COALESCE(proxy_bind_source_url, ''),
-		       COALESCE(proxy_bind_name, ''), COALESCE(proxy_bind_updated_at, ''),
-		       launch_args,
-		       tags, keywords, COALESCE(two_fa_secret, ''), COALESCE(icon_color, ''), group_id, created_at, updated_at,
-		       COALESCE(last_start_at, ''), COALESCE(last_stop_at, '')
-		FROM browser_profiles WHERE profile_id = ?`, profileId)
+	row := d.db.QueryRow(`SELECT `+profileSelectColumns+`
+		FROM browser_profiles
+		WHERE profile_id = ? AND COALESCE(deleted_at, '') = ''`, profileId)
+	p, err := scanProfile(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("实例不存在: %s", profileId)
+	}
+	return p, err
+}
+
+// GetAnyById 根据 profileId 查询单个实例，包含回收站实例
+func (d *SQLiteProfileDAO) GetAnyById(profileId string) (*Profile, error) {
+	row := d.db.QueryRow(`SELECT `+profileSelectColumns+`
+		FROM browser_profiles
+		WHERE profile_id = ?`, profileId)
 	p, err := scanProfile(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("实例不存在: %s", profileId)
@@ -95,8 +131,8 @@ func (d *SQLiteProfileDAO) Upsert(profile *Profile) error {
 		INSERT INTO browser_profiles
 		  (profile_id, profile_name, username, password, platform, platform_name, platform_url, user_data_dir, core_id, fingerprint_args,
 		   proxy_id, proxy_config, proxy_bind_source_id, proxy_bind_source_url, proxy_bind_name, proxy_bind_updated_at,
-		   launch_args, tags, keywords, two_fa_secret, icon_color, group_id, created_at, updated_at, last_start_at, last_stop_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		   launch_args, tags, keywords, two_fa_secret, icon_color, group_id, created_at, updated_at, last_start_at, last_stop_at, deleted_at, delete_after_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(profile_id) DO UPDATE SET
 		  profile_name     = excluded.profile_name,
 		  username         = excluded.username,
@@ -121,17 +157,45 @@ func (d *SQLiteProfileDAO) Upsert(profile *Profile) error {
 		  group_id         = excluded.group_id,
 		  updated_at       = excluded.updated_at,
 		  last_start_at    = excluded.last_start_at,
-		  last_stop_at     = excluded.last_stop_at`,
+		  last_stop_at     = excluded.last_stop_at,
+		  deleted_at       = excluded.deleted_at,
+		  delete_after_at  = excluded.delete_after_at`,
 		profile.ProfileId, profile.ProfileName, ResolveProfileUsername(profile.Username, profile.ProfileName),
 		strings.TrimSpace(profile.Password), strings.TrimSpace(profile.Platform), strings.TrimSpace(profile.PlatformName), strings.TrimSpace(profile.PlatformURL),
 		profile.UserDataDir, profile.CoreId,
 		string(fingerprintArgs), profile.ProxyId, profile.ProxyConfig,
 		profile.ProxyBindSourceID, profile.ProxyBindSourceURL, profile.ProxyBindName, profile.ProxyBindUpdatedAt,
 		string(launchArgs), string(tags), string(keywords), strings.TrimSpace(profile.TwoFASecret), ResolveProfileIconColor(profile.IconColor, profile.ProfileId), profile.GroupId,
-		profile.CreatedAt, profile.UpdatedAt, profile.LastStartAt, profile.LastStopAt,
+		profile.CreatedAt, profile.UpdatedAt, profile.LastStartAt, profile.LastStopAt, strings.TrimSpace(profile.DeletedAt), strings.TrimSpace(profile.DeleteAfterAt),
 	)
 	if err != nil {
 		return fmt.Errorf("保存实例配置失败: %w", err)
+	}
+	return nil
+}
+
+// MarkDeleted 将实例移入回收站
+func (d *SQLiteProfileDAO) MarkDeleted(profileId string, deletedAt string, deleteAfterAt string) error {
+	_, err := d.db.Exec(`
+		UPDATE browser_profiles
+		SET deleted_at = ?, delete_after_at = ?, updated_at = ?
+		WHERE profile_id = ?`,
+		strings.TrimSpace(deletedAt), strings.TrimSpace(deleteAfterAt), time.Now().Format(time.RFC3339), profileId)
+	if err != nil {
+		return fmt.Errorf("移入回收站失败: %w", err)
+	}
+	return nil
+}
+
+// Restore 从回收站恢复实例
+func (d *SQLiteProfileDAO) Restore(profileId string) error {
+	_, err := d.db.Exec(`
+		UPDATE browser_profiles
+		SET deleted_at = '', delete_after_at = '', updated_at = ?
+		WHERE profile_id = ?`,
+		time.Now().Format(time.RFC3339), profileId)
+	if err != nil {
+		return fmt.Errorf("恢复实例失败: %w", err)
 	}
 	return nil
 }
@@ -165,29 +229,16 @@ func (d *SQLiteProfileDAO) ListByGroup(groupId string, includeChildren bool, chi
 			args[i] = id
 		}
 		rows, err = d.db.Query(fmt.Sprintf(`
-			SELECT rowid, profile_id, profile_name, COALESCE(username, ''),
-			       COALESCE(password, ''), COALESCE(platform, ''), COALESCE(platform_name, ''), COALESCE(platform_url, ''),
-			       user_data_dir, core_id,
-			       fingerprint_args, proxy_id, proxy_config,
-			       COALESCE(proxy_bind_source_id, ''), COALESCE(proxy_bind_source_url, ''),
-			       COALESCE(proxy_bind_name, ''), COALESCE(proxy_bind_updated_at, ''),
-			       launch_args,
-			       tags, keywords, COALESCE(two_fa_secret, ''), COALESCE(icon_color, ''), group_id, created_at, updated_at,
-			       COALESCE(last_start_at, ''), COALESCE(last_stop_at, '')
-			FROM browser_profiles WHERE group_id IN (%s) ORDER BY rowid ASC`, inClause), args...)
+			SELECT `+profileSelectColumns+`
+			FROM browser_profiles
+			WHERE COALESCE(deleted_at, '') = '' AND group_id IN (%s)
+			ORDER BY rowid ASC`, inClause), args...)
 	} else {
 		// 仅查询指定分组
-		rows, err = d.db.Query(`
-			SELECT rowid, profile_id, profile_name, COALESCE(username, ''),
-			       COALESCE(password, ''), COALESCE(platform, ''), COALESCE(platform_name, ''), COALESCE(platform_url, ''),
-			       user_data_dir, core_id,
-			       fingerprint_args, proxy_id, proxy_config,
-			       COALESCE(proxy_bind_source_id, ''), COALESCE(proxy_bind_source_url, ''),
-			       COALESCE(proxy_bind_name, ''), COALESCE(proxy_bind_updated_at, ''),
-			       launch_args,
-			       tags, keywords, COALESCE(two_fa_secret, ''), COALESCE(icon_color, ''), group_id, created_at, updated_at,
-			       COALESCE(last_start_at, ''), COALESCE(last_stop_at, '')
-			FROM browser_profiles WHERE group_id = ? ORDER BY rowid ASC`, groupId)
+		rows, err = d.db.Query(`SELECT `+profileSelectColumns+`
+			FROM browser_profiles
+			WHERE COALESCE(deleted_at, '') = '' AND group_id = ?
+			ORDER BY rowid ASC`, groupId)
 	}
 
 	if err != nil {
@@ -243,7 +294,7 @@ func scanProfile(s scanner) (*Profile, error) {
 		&fingerprintArgsJSON, &p.ProxyId, &p.ProxyConfig,
 		&p.ProxyBindSourceID, &p.ProxyBindSourceURL, &p.ProxyBindName, &p.ProxyBindUpdatedAt,
 		&launchArgsJSON, &tagsJSON, &keywordsJSON, &p.TwoFASecret, &p.IconColor, &p.GroupId,
-		&p.CreatedAt, &p.UpdatedAt, &p.LastStartAt, &p.LastStopAt,
+		&p.CreatedAt, &p.UpdatedAt, &p.LastStartAt, &p.LastStopAt, &p.DeletedAt, &p.DeleteAfterAt,
 	)
 	if err != nil {
 		return nil, err

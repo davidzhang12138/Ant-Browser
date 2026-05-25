@@ -51,6 +51,7 @@ let mockProfiles: BrowserProfile[] = [
   },
 ]
 
+let mockTrashProfiles: BrowserProfile[] = []
 let mockCores: BrowserCore[] = []
 let mockProxies: BrowserProxy[] = []
 
@@ -60,6 +61,14 @@ export function getMockProfiles(): BrowserProfile[] {
 
 export function setMockProfiles(next: BrowserProfile[]): void {
   mockProfiles = next
+}
+
+export function getMockTrashProfiles(): BrowserProfile[] {
+  return mockTrashProfiles
+}
+
+export function setMockTrashProfiles(next: BrowserProfile[]): void {
+  mockTrashProfiles = next
 }
 
 export function getMockCores(): BrowserCore[] {

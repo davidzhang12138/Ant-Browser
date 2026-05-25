@@ -642,6 +642,8 @@ export namespace browser {
 	    updatedAt: string;
 	    lastStartAt: string;
 	    lastStopAt: string;
+	    deletedAt: string;
+	    deleteAfterAt: string;
 
 	    static createFrom(source: any = {}) {
 	        return new Profile(source);
@@ -675,6 +677,8 @@ export namespace browser {
 	        this.updatedAt = source["updatedAt"];
 	        this.lastStartAt = source["lastStartAt"];
 	        this.lastStopAt = source["lastStopAt"];
+	        this.deletedAt = source["deletedAt"];
+	        this.deleteAfterAt = source["deleteAfterAt"];
 	    }
 	}
 	export class ProfileInput {

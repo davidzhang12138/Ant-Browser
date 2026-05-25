@@ -234,6 +234,14 @@ export function BrowserProfileDelete(arg1) {
   return window['go']['main']['App']['BrowserProfileDelete'](arg1);
 }
 
+export function BrowserProfileDeleteForever(arg1) {
+  return window['go']['main']['App']['BrowserProfileDeleteForever'](arg1);
+}
+
+export function BrowserProfileDeleteWithOptions(arg1, arg2) {
+  return window['go']['main']['App']['BrowserProfileDeleteWithOptions'](arg1, arg2);
+}
+
 export function BrowserProfileGetCode(arg1) {
   return window['go']['main']['App']['BrowserProfileGetCode'](arg1);
 }
@@ -250,12 +258,20 @@ export function BrowserProfileRegenerateCode(arg1) {
   return window['go']['main']['App']['BrowserProfileRegenerateCode'](arg1);
 }
 
+export function BrowserProfileRestore(arg1) {
+  return window['go']['main']['App']['BrowserProfileRestore'](arg1);
+}
+
 export function BrowserProfileSetCode(arg1, arg2) {
   return window['go']['main']['App']['BrowserProfileSetCode'](arg1, arg2);
 }
 
 export function BrowserProfileSetKeywords(arg1, arg2) {
   return window['go']['main']['App']['BrowserProfileSetKeywords'](arg1, arg2);
+}
+
+export function BrowserProfileTrashList() {
+  return window['go']['main']['App']['BrowserProfileTrashList']();
 }
 
 export function BrowserProfileUpdate(arg1, arg2) {

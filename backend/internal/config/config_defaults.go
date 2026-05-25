@@ -290,11 +290,14 @@ func DefaultConfig() *Config {
 
 func defaultFingerprintArgsForOS(goos string) []string {
 	platform := "windows"
+	platformVersion := "11.0"
 	switch strings.ToLower(strings.TrimSpace(goos)) {
 	case "darwin":
 		platform = "macos"
+		platformVersion = "14_5"
 	case "linux":
 		platform = "linux"
+		platformVersion = "x86_64"
 	}
 	userAgent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
 	if platform == "macos" {
@@ -305,6 +308,7 @@ func defaultFingerprintArgsForOS(goos string) []string {
 	return []string{
 		"--fingerprint-brand=Chrome",
 		"--fingerprint-platform=" + platform,
+		"--fingerprint-platform-version=" + platformVersion,
 		"--user-agent=" + userAgent,
 		"--lang=ip",
 		"--timezone=ip",

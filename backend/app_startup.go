@@ -148,6 +148,18 @@ func (a *App) startupInitLaunchCode(log *logger.Logger) {
 		log.Error("LaunchCode 加载失败", logger.F("error", err))
 	}
 	a.browserMgr.CodeProvider = a.launchCodeSvc
+	a.startupCleanupExpiredTrash(log)
+}
+
+func (a *App) startupCleanupExpiredTrash(log *logger.Logger) {
+	if a.browserMgr == nil {
+		return
+	}
+	if removed, err := a.browserMgr.CleanupExpiredTrash(time.Now().UTC()); err != nil {
+		log.Warn("清理过期回收站失败", logger.F("error", err))
+	} else if removed > 0 {
+		log.Info("过期回收站实例已清理", logger.F("count", removed))
+	}
 }
 
 func (a *App) startupInitLaunchServer(log *logger.Logger) {

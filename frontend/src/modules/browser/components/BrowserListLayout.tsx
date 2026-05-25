@@ -23,6 +23,7 @@ interface BrowserListHeaderProps {
   onFiltersChange: (next: InstanceFilters) => void
   onToggleHeaderCollapsed: () => void
   onRefresh: () => void
+  onOpenTrash: () => void
   onOpenSettings: () => void
   onOpenExpandModal: () => void
   onViewModeChange: (next: BrowserViewMode) => void
@@ -41,6 +42,7 @@ export function BrowserListHeader({
   onFiltersChange,
   onToggleHeaderCollapsed,
   onRefresh,
+  onOpenTrash,
   onOpenSettings,
   onOpenExpandModal,
   onViewModeChange,
@@ -64,6 +66,9 @@ export function BrowserListHeader({
           </Button>
           <Button variant="secondary" size="sm" onClick={onRefresh}>
             <RefreshCw className="w-4 h-4" />刷新
+          </Button>
+          <Button variant="secondary" size="sm" onClick={onOpenTrash}>
+            <Trash2 className="w-4 h-4" />回收站
           </Button>
           <Button variant="secondary" size="sm" onClick={onOpenSettings}>
             <Sliders className="w-4 h-4" />基础配置

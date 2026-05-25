@@ -181,6 +181,16 @@ var migrations = []migration{
 			`ALTER TABLE browser_profiles ADD COLUMN platform_url TEXT NOT NULL DEFAULT ''`,
 		},
 	},
+	{
+		version: 13,
+		desc:    "实例表添加回收站字段",
+		stmts: []string{
+			`ALTER TABLE browser_profiles ADD COLUMN deleted_at TEXT NOT NULL DEFAULT ''`,
+			`ALTER TABLE browser_profiles ADD COLUMN delete_after_at TEXT NOT NULL DEFAULT ''`,
+			`CREATE INDEX IF NOT EXISTS idx_browser_profiles_deleted_at ON browser_profiles(deleted_at)`,
+			`CREATE INDEX IF NOT EXISTS idx_browser_profiles_delete_after_at ON browser_profiles(delete_after_at)`,
+		},
+	},
 	// ── 新版本在此追加，格式：
 	// {
 	//     version: 4,

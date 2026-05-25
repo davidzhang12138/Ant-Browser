@@ -1,5 +1,6 @@
+import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Copy, Key, Play, RotateCcw, Settings, Square, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Copy, Key, Play, RotateCcw, Settings, Square, Trash2, Wifi } from 'lucide-react'
 
 import { Badge, Button, Card, Table } from '../../../shared/components'
 import type { SortOrder, SorterResult, TableColumn } from '../../../shared/components/Table'
@@ -7,12 +8,20 @@ import type { SortOrder, SorterResult, TableColumn } from '../../../shared/compo
 import type { BrowserCore, BrowserGroupWithCount, BrowserProfile, BrowserProxy } from '../types'
 import type { BrowserViewMode } from './BrowserListLayout'
 import { KeywordInlineRow } from './BrowserListWidgets'
+import { getBrowserListTableScrollLeft, saveBrowserListTableScrollLeft } from '../utils/listReturnPath'
 
 type ProfileStatusVariant = 'default' | 'success' | 'error' | 'warning' | 'info'
 
 interface ProfileStatus {
   variant: ProfileStatusVariant
   label: string
+}
+
+export interface ProfileProxyTestState {
+  loading?: boolean
+  ok?: boolean
+  latencyMs?: number
+  error?: string
 }
 
 interface BrowserProfilesPanelProps {
@@ -34,6 +43,7 @@ interface BrowserProfilesPanelProps {
   isProfileStarting: (profileId: string) => boolean
   isProfileStopping: (profileId: string) => boolean
   isProfileBusy: (profileId: string) => boolean
+  proxyTestStates: Record<string, ProfileProxyTestState>
   onToggleSelect: (profileId: string) => void
   onSelectAll: () => void
   onDeselectAll: () => void
@@ -43,6 +53,7 @@ interface BrowserProfilesPanelProps {
   onStart: (profileId: string) => void
   onStop: (profileId: string) => void
   onRestart: (profileId: string) => void
+  onTestProxy: (profile: BrowserProfile) => void
   onOpenKeywords: (profile: BrowserProfile) => void
   onOpenCopy: (profile: BrowserProfile) => void
   onDelete: (profileId: string) => void
@@ -68,6 +79,26 @@ function formatProxyLabel(profile: BrowserProfile, proxy?: BrowserProxy): string
   return '-'
 }
 
+function isDirectProxy(profile: BrowserProfile, proxy?: BrowserProxy) {
+  const value = (proxy?.proxyConfig || profile.proxyConfig || '').trim()
+  return value === 'direct://'
+}
+
+function hasProxyConfig(profile: BrowserProfile, proxy?: BrowserProxy) {
+  return Boolean((profile.proxyId || '').trim() || (proxy?.proxyConfig || profile.proxyConfig || '').trim())
+}
+
+function ProxyTestStatus({ state }: { state?: ProfileProxyTestState }) {
+  if (!state) return null
+  if (state.loading) {
+    return <span className="text-[11px] text-[var(--color-text-muted)] animate-pulse">检测中</span>
+  }
+  if (state.ok) {
+    return <span className="text-[11px] font-medium text-[var(--color-success)]">{state.latencyMs || 0} ms</span>
+  }
+  return <span className="text-[11px] font-medium text-[var(--color-error)]" title={state.error || '检测失败'}>失败</span>
+}
+
 function BrowserProfileCard({
   profile,
   serialNumber,
@@ -79,10 +110,12 @@ function BrowserProfileCard({
   isStarting,
   isStopping,
   isBusy,
+  proxyTestState,
   onToggleSelect,
   onStart,
   onStop,
   onRestart,
+  onTestProxy,
   onOpenKeywords,
   onOpenCopy,
   onDelete,
@@ -97,10 +130,12 @@ function BrowserProfileCard({
   isStarting: boolean
   isStopping: boolean
   isBusy: boolean
+  proxyTestState?: ProfileProxyTestState
   onToggleSelect: (profileId: string) => void
   onStart: (profileId: string) => void
   onStop: (profileId: string) => void
   onRestart: (profileId: string) => void
+  onTestProxy: (profile: BrowserProfile) => void
   onOpenKeywords: (profile: BrowserProfile) => void
   onOpenCopy: (profile: BrowserProfile) => void
   onDelete: (profileId: string) => void
@@ -168,9 +203,21 @@ function BrowserProfileCard({
         </div>
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-[var(--color-text-muted)] font-medium">代理配置</span>
-          <span className="text-xs text-[var(--color-text-primary)] truncate" title={formatProxyLabel(profile, proxy)}>
-            {formatProxyLabel(profile, proxy)}
-          </span>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="min-w-0 flex-1 truncate text-xs text-[var(--color-text-primary)]" title={formatProxyLabel(profile, proxy)}>
+              {formatProxyLabel(profile, proxy)}
+            </span>
+            <button
+              type="button"
+              className="shrink-0 rounded p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={() => onTestProxy(profile)}
+              disabled={proxyTestState?.loading || !hasProxyConfig(profile, proxy) || isDirectProxy(profile, proxy)}
+              title={isDirectProxy(profile, proxy) ? '直连无需检测' : '检测代理可用性'}
+            >
+              <Wifi className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <ProxyTestStatus state={proxyTestState} />
         </div>
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-[var(--color-text-muted)] font-medium">分组</span>
@@ -212,6 +259,7 @@ export function BrowserProfilesPanel({
   isProfileStarting,
   isProfileStopping,
   isProfileBusy,
+  proxyTestStates,
   onToggleSelect,
   onSelectAll,
   onDeselectAll,
@@ -221,10 +269,13 @@ export function BrowserProfilesPanel({
   onStart,
   onStop,
   onRestart,
+  onTestProxy,
   onOpenKeywords,
   onOpenCopy,
   onDelete,
 }: BrowserProfilesPanelProps) {
+  const tableScrollRef = useRef<HTMLDivElement | null>(null)
+  const didRestoreTableScrollRef = useRef(false)
   const allSelected = totalCount > 0 && selectedIds.size === totalCount
   const partiallySelected = selectedIds.size > 0 && selectedIds.size < totalCount
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
@@ -322,10 +373,32 @@ export function BrowserProfilesPanel({
     {
       key: 'proxyId',
       title: '代理',
-      width: 120,
+      width: 190,
       render: (value, record) => {
         const proxy = proxies.find(item => item.proxyId === value)
-        return <span className="whitespace-nowrap text-xs" title={formatProxyLabel(record, proxy)}>{formatProxyLabel(record, proxy)}</span>
+        const state = proxyTestStates[record.profileId]
+        return (
+          <div className="flex min-w-0 flex-col gap-1">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="min-w-0 flex-1 truncate whitespace-nowrap text-xs" title={formatProxyLabel(record, proxy)}>
+                {formatProxyLabel(record, proxy)}
+              </span>
+              <button
+                type="button"
+                className="shrink-0 rounded p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-40"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onTestProxy(record)
+                }}
+                disabled={state?.loading || !hasProxyConfig(record, proxy) || isDirectProxy(record, proxy)}
+                title={isDirectProxy(record, proxy) ? '直连无需检测' : '检测代理可用性'}
+              >
+                <Wifi className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <ProxyTestStatus state={state} />
+          </div>
+        )
       },
     },
     {
@@ -384,6 +457,18 @@ export function BrowserProfilesPanel({
     },
   ]
 
+  useEffect(() => {
+    if (loading || viewMode !== 'table' || didRestoreTableScrollRef.current) return
+    didRestoreTableScrollRef.current = true
+    const scrollLeft = getBrowserListTableScrollLeft()
+    if (scrollLeft <= 0) return
+    window.requestAnimationFrame(() => {
+      if (tableScrollRef.current) {
+        tableScrollRef.current.scrollLeft = scrollLeft
+      }
+    })
+  }, [loading, profiles.length, viewMode])
+
   return (
     <Card padding="none">
       <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
@@ -396,10 +481,12 @@ export function BrowserProfilesPanel({
             columns={columns}
             data={profiles}
             rowKey="profileId"
-            tableMinWidth="1100px"
+            tableMinWidth="1180px"
             onSort={onSortChange}
             sortColumn={sortColumn}
             sortOrder={sortOrder}
+            scrollContainerRef={tableScrollRef}
+            onScroll={(event) => saveBrowserListTableScrollLeft(event.currentTarget.scrollLeft)}
           />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-[500px] p-4 items-start content-start">
@@ -416,10 +503,12 @@ export function BrowserProfilesPanel({
                 isStarting={isProfileStarting(profile.profileId)}
                 isStopping={isProfileStopping(profile.profileId)}
                 isBusy={isProfileBusy(profile.profileId)}
+                proxyTestState={proxyTestStates[profile.profileId]}
                 onToggleSelect={onToggleSelect}
                 onStart={onStart}
                 onStop={onStop}
                 onRestart={onRestart}
+                onTestProxy={onTestProxy}
                 onOpenKeywords={onOpenKeywords}
                 onOpenCopy={onOpenCopy}
                 onDelete={onDelete}

@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import type { ReactNode, RefObject, UIEventHandler } from 'react'
 import clsx from 'clsx'
 import { ArrowUp, ArrowDown } from 'lucide-react'
 
@@ -32,6 +32,8 @@ interface TableProps<T> {
   onSort?: (sorterResult: SorterResult) => void // 排序变化回调
   sortColumn?: string // 当前排序的列
   sortOrder?: SortOrder // 当前排序方式
+  scrollContainerRef?: RefObject<HTMLDivElement>
+  onScroll?: UIEventHandler<HTMLDivElement>
 }
 
 export function Table<T extends Record<string, any>>({
@@ -48,6 +50,8 @@ export function Table<T extends Record<string, any>>({
   onSort,
   sortColumn,
   sortOrder,
+  scrollContainerRef,
+  onScroll,
 }: TableProps<T>) {
   const getRowKey = (record: T, index: number): string => {
     if (typeof rowKey === 'function') {
@@ -102,8 +106,10 @@ export function Table<T extends Record<string, any>>({
 
   return (
     <div
+      ref={scrollContainerRef}
       className={clsx('overflow-auto', className)}
       style={{ maxHeight }}
+      onScroll={onScroll}
     >
       <table className="min-w-full" style={{ minWidth: tableMinWidth }}>
         <thead className={clsx(stickyHeader && 'sticky top-0 z-10')}>

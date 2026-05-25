@@ -112,9 +112,10 @@ export function withFingerprintDefaults(config: FingerprintConfig): FingerprintC
   const next: FingerprintConfig = {
     ...DEFAULT_FINGERPRINT_CONFIG,
     ...config,
+    platform: normalizePlatformValue(config.platform || DEFAULT_FINGERPRINT_CONFIG.platform),
     unknownArgs: config.unknownArgs ?? [],
   }
-  if (!next.userAgent) {
+  if (!next.userAgent || !isUserAgentCompatible(next, next.userAgent)) {
     next.userAgent = buildUserAgent(next)
   }
   return next
@@ -240,6 +241,8 @@ export function deserialize(args: string[]): FingerprintConfig {
       config.osVersion = config.osVersion || uaInfo.osVersion
       config.browserMajor = uaInfo.browserMajor
       config.brand = config.brand || uaInfo.brand
+    } else if (field === 'platform') {
+      config.platform = normalizePlatformValue(val)
     } else {
       (config as Record<string, unknown>)[field] = val
     }
@@ -274,6 +277,40 @@ export function buildUserAgent(config: Partial<FingerprintConfig>): string {
   }
   const chromePart = `Chrome/${major}.0.0.0 Safari/537.36`
   return `Mozilla/5.0 (${osPart}) AppleWebKit/537.36 (KHTML, like Gecko) ${chromePart}${brand === 'Edge' ? ` Edg/${major}.0.0.0` : ''}`
+}
+
+export function isUserAgentCompatible(config: Partial<FingerprintConfig>, userAgent: string): boolean {
+  const value = userAgent.trim()
+  if (!value) return false
+
+  const uaInfo = parseUserAgent(value)
+  const platform = normalizePlatformValue(config.platform || uaInfo.platform)
+  const deviceType = config.deviceType || uaInfo.deviceType
+  const brand = config.brand || uaInfo.brand
+  const browserMajor = config.browserMajor || uaInfo.browserMajor
+  const osVersion = config.osVersion || defaultOSVersion(platform, deviceType)
+
+  if (uaInfo.platform !== platform) return false
+  if (uaInfo.deviceType !== deviceType) return false
+  if (uaInfo.brand !== brand) return false
+  if (uaInfo.browserMajor !== browserMajor) return false
+  if (platform === 'windows' && osVersion === '11.0' && uaInfo.osVersion === '10.0') return true
+  return uaInfo.osVersion === osVersion
+}
+
+export function browserMajorFromChromeVersion(chromeVersion?: string): string {
+  const match = String(chromeVersion || '').trim().match(/^(\d{2,3})(?:\.|$)/)
+  return match?.[1] || ''
+}
+
+export function applyBrowserMajor(config: FingerprintConfig, browserMajor?: string): FingerprintConfig {
+  const major = String(browserMajor || '').trim()
+  if (!major) {
+    return withFingerprintDefaults(config)
+  }
+  const next = withFingerprintDefaults({ ...config, browserMajor: major })
+  next.userAgent = buildUserAgent(next)
+  return next
 }
 
 export function defaultOSVersion(platform?: string, deviceType = 'desktop'): string {
@@ -348,7 +385,9 @@ export function createRandomizedFingerprintConfig(base: FingerprintConfig | Part
     ...randomScreenHardwarePatch(),
     seed: base.seed || randomFingerprintSeed(),
   })
-  next.userAgent = base.userAgent || buildUserAgent(next)
+  if (!next.userAgent || !isUserAgentCompatible(next, next.userAgent)) {
+    next.userAgent = buildUserAgent(next)
+  }
   return next
 }
 

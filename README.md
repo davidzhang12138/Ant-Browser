@@ -241,6 +241,14 @@ chrome/
 
 建议采用一账号一实例、一实例一稳定代理的方式，不要混用浏览器环境，也不要频繁切换同一实例的出口 IP。
 
+### 5. macOS 提示应用已损坏或无法打开怎么办？
+
+当前 macOS 包是 unsigned 构建，复制到 `/Applications` 后有时会被 Gatekeeper quarantine 标记拦截。可以执行下面命令移除 quarantine 标记后再打开：
+
+```bash
+sudo xattr -dr com.apple.quarantine /Applications/AntBrowser.app
+```
+
 ## Roadmap
 
 - 完善自动化模块能力

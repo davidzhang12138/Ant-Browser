@@ -1,5 +1,6 @@
 export {
   TagManagementPage,
+  GroupManagementPage,
   BrowserListPage,
   BrowserDetailPage,
   BrowserEditPage,

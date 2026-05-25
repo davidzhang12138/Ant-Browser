@@ -28,6 +28,7 @@ type browserStartPageModel struct {
 	Tags        string
 	Keywords    string
 	UserAgent   string
+	OSVersion   string
 	TwoFASecret string
 	TwoFACode   string
 	TwoFAError  string
@@ -71,7 +72,7 @@ func (a *App) browserStartPageURL(profile *BrowserProfile, launchedAt time.Time)
 		return "", err
 	}
 
-	fileName := safeStartPageFileName(browserStartPageSerial(profile)) + ".html"
+	fileName := safeStartPageFileName(profile.ProfileId) + ".html"
 	pagePath := filepath.Join(dir, fileName)
 	html, err := renderBrowserStartPageHTML(a.browserStartPageModel(profile, launchedAt))
 	if err != nil {
@@ -123,7 +124,7 @@ func (a *App) browserStartPageModel(profile *BrowserProfile, launchedAt time.Tim
 	}
 
 	return browserStartPageModel{
-		Title:       strings.TrimSpace(serial + " " + profileName),
+		Title:       profileName,
 		Serial:      serial,
 		ProfileName: profileName,
 		Username:    browserStartPageUsername(profile, profileName),
@@ -134,6 +135,7 @@ func (a *App) browserStartPageModel(profile *BrowserProfile, launchedAt time.Tim
 		Tags:        strings.Join(normalizeNonEmptyStrings(profile.Tags), ", "),
 		Keywords:    strings.Join(normalizeNonEmptyStrings(profile.Keywords), ", "),
 		UserAgent:   browserStartPageUserAgent(profile),
+		OSVersion:   browserStartPageArgValue(profile.FingerprintArgs, "--fingerprint-platform-version"),
 		TwoFASecret: twoFASecret,
 		TwoFACode:   twoFACode,
 		TwoFAError:  twoFAError,
@@ -180,12 +182,12 @@ func browserStartPagePlatformName(profile *BrowserProfile) string {
 
 func browserStartPageUsername(profile *BrowserProfile, profileName string) string {
 	if profile == nil {
-		return strings.TrimSpace(profileName)
+		return browserStartPageCopyValue(profileName)
 	}
 	if value := strings.TrimSpace(profile.Username); value != "" {
-		return value
+		return browserStartPageCopyValue(value)
 	}
-	return strings.TrimSpace(profileName)
+	return browserStartPageCopyValue(profileName)
 }
 
 func browserStartPageSerial(profile *BrowserProfile) string {
@@ -244,6 +246,18 @@ func browserStartPageArgValue(args []string, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+func browserStartPageCopyValue(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) >= 2 {
+		first := value[0]
+		last := value[len(value)-1]
+		if (first == '"' && last == '"') || (first == '\'' && last == '\'') {
+			return strings.TrimSpace(value[1 : len(value)-1])
+		}
+	}
+	return value
 }
 
 func normalizeTOTPSecret(secret string) string {
@@ -307,6 +321,8 @@ func renderBrowserStartPageHTML(model browserStartPageModel) (string, error) {
 	if strings.TrimSpace(model.Title) == "" {
 		model.Title = "Ant Browser"
 	}
+	model.Username = browserStartPageCopyValue(model.Username)
+	model.Password = browserStartPageCopyValue(model.Password)
 	var buf bytes.Buffer
 	if err := browserStartPageTemplate.Execute(&buf, model); err != nil {
 		return "", err
@@ -314,7 +330,9 @@ func renderBrowserStartPageHTML(model browserStartPageModel) (string, error) {
 	return buf.String(), nil
 }
 
-var browserStartPageTemplate = template.Must(template.New("browser-start-page").Parse(`<!DOCTYPE html>
+var browserStartPageTemplate = template.Must(template.New("browser-start-page").Funcs(template.FuncMap{
+	"copyValue": browserStartPageCopyValue,
+}).Parse(`<!DOCTYPE html>
 <html>
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -374,8 +392,8 @@ var browserStartPageTemplate = template.Must(template.New("browser-start-page").
     <div class="content">
       <div class="row-left"><div class="bd">序号:</div><div class="hd">{{.Serial}}</div></div>
       <div class="row-left"><div class="bd">实例名称:</div><div class="hd">{{.ProfileName}}</div></div>
-      <div class="row-left"><div class="bd">用户名:</div><div class="hd">{{.Username}}<button class="copy" onclick="copyText({{printf "%q" .Username}})">复制</button></div></div>
-      <div class="row-left"><div class="bd">密码:</div><div class="hd">{{if .Password}}{{.Password}}<button class="copy" onclick="copyText({{printf "%q" .Password}})">复制</button>{{else}}<span class="no-re">未设置密码</span>{{end}}</div></div>
+      <div class="row-left"><div class="bd">用户名:</div><div class="hd">{{.Username}}<button class="copy" data-copy="{{copyValue .Username}}" onclick="copyText(this.dataset.copy||'')">复制</button></div></div>
+      <div class="row-left"><div class="bd">密码:</div><div class="hd">{{if .Password}}{{.Password}}<button class="copy" data-copy="{{copyValue .Password}}" onclick="copyText(this.dataset.copy||'')">复制</button>{{else}}<span class="no-re">未设置密码</span>{{end}}</div></div>
       <div class="row-left"><div class="bd">平台:</div><div class="hd">{{if .Platform}}{{.Platform}}{{if .PlatformURL}}<a class="platform-link" href="{{.PlatformURL}}" target="_blank" rel="noopener noreferrer">{{.PlatformURL}}</a>{{end}}{{else}}<span class="no-re">无平台</span>{{end}}</div></div>
       <div class="row-left"><div class="bd">2FA验证码:</div><div class="hd">{{if .TwoFASecret}}<span id="twofa-code" class="twofa-code" data-secret="{{.TwoFASecret}}">{{if .TwoFAError}}{{.TwoFAError}}{{else}}{{.TwoFACode}}{{end}}</span><span id="twofa-timer" class="twofa-timer"></span><button class="copy" onclick="copyTOTP()">复制</button>{{else}}<span class="no-re">未设置2FA密钥</span>{{end}}</div></div>
       <div class="row-left"><div class="bd">分组:</div><div class="hd">{{.GroupName}}</div></div>
@@ -385,6 +403,7 @@ var browserStartPageTemplate = template.Must(template.New("browser-start-page").
       <div class="finger">
         <div class="row-left"><div class="bd">语言:</div><div class="hd">{{.Language}}</div></div>
         <div class="row-left"><div class="bd">UserAgent:</div><div class="hd" id="user-agent">{{.UserAgent}}</div></div>
+        <div class="row-left"><div class="bd">系统版本:</div><div class="hd">{{.OSVersion}}</div></div>
         <div class="row-left"><div class="bd">时区:</div><div class="hd">{{.Timezone}}</div></div>
       </div>
     </div>
@@ -435,8 +454,16 @@ function checkWebSite(){
   })
 }
 async function copyText(text){
-  try{ await navigator.clipboard.writeText(text); showToast('已复制到剪贴板') }
+  try{ await navigator.clipboard.writeText(normalizeCopyText(text)); showToast('已复制到剪贴板') }
   catch(e){ showToast('复制失败') }
+}
+function normalizeCopyText(value){
+  var text=String(value||'').trim();
+  if(text.length>=2){
+    var first=text.charAt(0), last=text.charAt(text.length-1);
+    if((first==='"'&&last==='"')||(first==="'"&&last==="'")) return text.slice(1,-1).trim();
+  }
+  return text;
 }
 function base32Decode(value){
   var raw=value||'';
