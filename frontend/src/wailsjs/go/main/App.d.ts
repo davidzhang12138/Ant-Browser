@@ -175,6 +175,10 @@ export function BrowserSnapshotRestore(arg1:string,arg2:string):Promise<void>;
 
 export function ClearAppLogs():Promise<void>;
 
+export function ClearCurrentBrowserCaches():Promise<backend.StorageCleanupResult>;
+
+export function ClearLegacyCacheRoot():Promise<backend.StorageCleanupResult>;
+
 export function CreateGroup(arg1:browser.GroupInput):Promise<browser.Group>;
 
 export function DeleteGroup(arg1:string):Promise<void>;
@@ -208,6 +212,8 @@ export function GetMemoryStats():Promise<Record<string, any>>;
 export function GetProxyCheckSettings():Promise<config.ProxyCheckConfig>;
 
 export function GetRunningInstances():Promise<Array<browser.Profile>>;
+
+export function GetStorageCleanupOverview():Promise<backend.StorageCleanupOverview>;
 
 export function InstallAutomationRuntime():Promise<Record<string, any>>;
 

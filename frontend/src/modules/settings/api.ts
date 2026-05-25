@@ -111,6 +111,50 @@ export interface BackupActionResult {
   }>
 }
 
+export interface StoragePathUsage {
+  key: string
+  label: string
+  path: string
+  exists: boolean
+  sizeBytes: number
+  cleanable: boolean
+  description: string
+  warning: string
+}
+
+export interface StorageCleanupOverview {
+  currentDataRoot: StoragePathUsage
+  legacyCacheRoot: StoragePathUsage
+  currentCacheBytes: number
+  currentProfileCount: number
+  skippedRunningProfiles: number
+}
+
+export interface StorageCleanupResult {
+  removedBytes: number
+  removedPaths: number
+  message: string
+}
+
+export const defaultStoragePathUsage: StoragePathUsage = {
+  key: '',
+  label: '',
+  path: '',
+  exists: false,
+  sizeBytes: 0,
+  cleanable: false,
+  description: '',
+  warning: '',
+}
+
+export const defaultStorageCleanupOverview: StorageCleanupOverview = {
+  currentDataRoot: { ...defaultStoragePathUsage, key: 'current-data', label: '当前实例数据' },
+  legacyCacheRoot: { ...defaultStoragePathUsage, key: 'legacy-cache', label: '旧缓存目录' },
+  currentCacheBytes: 0,
+  currentProfileCount: 0,
+  skippedRunningProfiles: 0,
+}
+
 // 获取设置
 export async function fetchSettings(): Promise<AppSettings> {
   try {
@@ -163,6 +207,42 @@ export async function importSystemConfig(resetFirst: boolean): Promise<BackupAct
     return { cancelled: false, message: '当前环境不支持后端加载接口' }
   }
   return (await bindings.BackupImportPackage(resetFirst)) || {}
+}
+
+export async function fetchStorageCleanupOverview(): Promise<StorageCleanupOverview> {
+  const bindings: any = await getBindings()
+  if (!bindings?.GetStorageCleanupOverview) {
+    return defaultStorageCleanupOverview
+  }
+  const raw = (await bindings.GetStorageCleanupOverview()) || {}
+  return {
+    ...defaultStorageCleanupOverview,
+    ...raw,
+    currentDataRoot: {
+      ...defaultStorageCleanupOverview.currentDataRoot,
+      ...(raw.currentDataRoot || {}),
+    },
+    legacyCacheRoot: {
+      ...defaultStorageCleanupOverview.legacyCacheRoot,
+      ...(raw.legacyCacheRoot || {}),
+    },
+  }
+}
+
+export async function clearLegacyCacheRoot(): Promise<StorageCleanupResult> {
+  const bindings: any = await getBindings()
+  if (!bindings?.ClearLegacyCacheRoot) {
+    return { removedBytes: 0, removedPaths: 0, message: '当前环境不支持旧缓存清理接口' }
+  }
+  return (await bindings.ClearLegacyCacheRoot()) || { removedBytes: 0, removedPaths: 0, message: '' }
+}
+
+export async function clearCurrentBrowserCaches(): Promise<StorageCleanupResult> {
+  const bindings: any = await getBindings()
+  if (!bindings?.ClearCurrentBrowserCaches) {
+    return { removedBytes: 0, removedPaths: 0, message: '当前环境不支持实例缓存清理接口' }
+  }
+  return (await bindings.ClearCurrentBrowserCaches()) || { removedBytes: 0, removedPaths: 0, message: '' }
 }
 
 export async function fetchAutomationState(): Promise<AutomationState> {

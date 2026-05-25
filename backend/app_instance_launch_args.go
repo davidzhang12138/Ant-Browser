@@ -149,6 +149,8 @@ func (a *App) openBrowserWindowForRunningProfile(profile *BrowserProfile, extraL
 
 	args := []string{
 		fmt.Sprintf("--user-data-dir=%s", userDataDir),
+		fmt.Sprintf("--disk-cache-dir=%s", browserDiskCacheDir(userDataDir)),
+		"--v8-cache-options=none",
 	}
 	sanitizedExtraLaunchArgs, managedExtraArgs := sanitizeManagedLaunchArgs(extraLaunchArgs)
 	logManagedLaunchArgOverrides(logger.New("Browser"), profile.ProfileId, "running-window.extraLaunchArgs", managedExtraArgs)

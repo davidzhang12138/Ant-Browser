@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { AlertTriangle, Clock3, FolderTree, HardDrive, KeyRound, Network, RefreshCw, RotateCcw, ShieldCheck, Tags, Trash2, User, XCircle } from 'lucide-react'
 import { Button, FormItem, Input, Modal } from '../../../../shared/components'
@@ -200,6 +201,13 @@ export function BrowserListDialogs({
   opError,
   onCloseOpError,
 }: BrowserListDialogsProps) {
+  const [pendingTrashDelete, setPendingTrashDelete] = useState<BrowserProfile | null>(null)
+  const confirmTrashDelete = () => {
+    if (!pendingTrashDelete) return
+    onDeleteForeverTrash(pendingTrashDelete.profileId)
+    setPendingTrashDelete(null)
+  }
+
   return (
     <>
       <Modal
@@ -479,7 +487,7 @@ export function BrowserListDialogs({
                           <Button
                             size="sm"
                             variant="danger"
-                            onClick={() => onDeleteForeverTrash(profile.profileId)}
+                            onClick={() => setPendingTrashDelete(profile)}
                             loading={trashActionId === profile.profileId}
                             disabled={Boolean(trashActionId && trashActionId !== profile.profileId)}
                             className="whitespace-nowrap"
@@ -494,6 +502,34 @@ export function BrowserListDialogs({
               </div>
             )}
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(pendingTrashDelete)}
+        onClose={() => setPendingTrashDelete(null)}
+        title="确认彻底删除"
+        width="480px"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setPendingTrashDelete(null)}>取消</Button>
+            <Button variant="danger" onClick={confirmTrashDelete}>
+              确认彻底删除
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
+          <p>将彻底删除该实例，并同时删除实例数据目录、启动码和回收站记录。</p>
+          <div className="rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] px-3 py-2">
+            <div className="truncate text-sm font-medium text-[var(--color-text-primary)]" title={pendingTrashDelete?.profileName || ''}>
+              {pendingTrashDelete?.profileName || '-'}
+            </div>
+            <div className="mt-1 truncate text-xs text-[var(--color-text-muted)]" title={pendingTrashDelete?.userDataDir || ''}>
+              数据目录：{pendingTrashDelete?.userDataDir || '-'}
+            </div>
+          </div>
+          <p className="text-xs text-[var(--color-error)]">此操作不可恢复。</p>
         </div>
       </Modal>
 

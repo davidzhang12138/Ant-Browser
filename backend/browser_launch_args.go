@@ -12,6 +12,8 @@ type managedLaunchArgSpec struct {
 
 var managedLaunchArgSpecs = []managedLaunchArgSpec{
 	{prefix: "--user-data-dir", takesValue: true},
+	{prefix: "--disk-cache-dir", takesValue: true},
+	{prefix: "--v8-cache-options", takesValue: true},
 	{prefix: "--remote-debugging-port", takesValue: true},
 	{prefix: "--remote-debugging-address", takesValue: true},
 	{prefix: "--remote-debugging-pipe", takesValue: false},

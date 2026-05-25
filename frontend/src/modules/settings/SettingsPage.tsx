@@ -8,6 +8,9 @@ import {
   initializeSystemData,
   exportSystemConfig,
   importSystemConfig,
+  fetchStorageCleanupOverview,
+  clearLegacyCacheRoot,
+  clearCurrentBrowserCaches,
   fetchAutomationState,
   saveAutomationScriptPackageSettings,
   saveAutomationSettings,
@@ -16,18 +19,21 @@ import {
   automationProbeSystemNode,
   automationRuntimeSelfCheck,
   defaultAutomationState,
+  defaultStorageCleanupOverview,
 } from './api'
 import type { AppSettings } from './types'
-import type { AutomationNodeSource, AutomationRuntimeCheck, AutomationState, AutomationSystemNodeProbe } from './api'
+import type { AutomationNodeSource, AutomationRuntimeCheck, AutomationState, AutomationSystemNodeProbe, StorageCleanupOverview } from './api'
 import { defaultSettings } from './types'
 import { AutomationSettingsCard } from './components/AutomationSettingsCard'
 import { BackupImportModal, BackupSettingsCard } from './components/BackupSettingsCard'
+import { StorageCleanupCard } from './components/StorageCleanupCard'
 import type { AutomationRuntimeProgress, BackupExportLogItem, BackupExportProgress } from './progress'
 import { useSettingsProgressEffects } from './hooks/useSettingsProgressEffects'
 
 export function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings)
   const [automationState, setAutomationState] = useState<AutomationState>(defaultAutomationState)
+  const [storageOverview, setStorageOverview] = useState<StorageCleanupOverview>(defaultStorageCleanupOverview)
   const [automationProgress, setAutomationProgress] = useState<AutomationRuntimeProgress | null>(null)
   const [automationBusy, setAutomationBusy] = useState<'none' | 'toggle' | 'probe' | 'runtime' | 'package' | 'install' | 'check'>('none')
   const [automationCheck, setAutomationCheck] = useState<AutomationRuntimeCheck | null>(null)
@@ -35,6 +41,9 @@ export function SettingsPage() {
   const [automationNodeSourceDraft, setAutomationNodeSourceDraft] = useState<AutomationNodeSource>('auto')
   const [automationSystemNodePathDraft, setAutomationSystemNodePathDraft] = useState('')
   const [automationRuntimeDirty, setAutomationRuntimeDirty] = useState(false)
+  const [storageScanLoading, setStorageScanLoading] = useState(false)
+  const [storageActionLoading, setStorageActionLoading] = useState<'none' | 'legacy' | 'browser'>('none')
+  const [storageScanned, setStorageScanned] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
@@ -48,6 +57,12 @@ export function SettingsPage() {
   useEffect(() => {
     loadSettings()
   }, [])
+
+  useEffect(() => {
+    if (!loading && !storageScanned && !storageScanLoading) {
+      void refreshStorageOverview()
+    }
+  }, [loading, storageScanLoading, storageScanned])
 
   useSettingsProgressEffects({
     actionLoading,
@@ -344,6 +359,47 @@ export function SettingsPage() {
     }
   }
 
+  const refreshStorageOverview = async () => {
+    setStorageScanLoading(true)
+    try {
+      const overview = await fetchStorageCleanupOverview()
+      setStorageOverview(overview)
+      setStorageScanned(true)
+    } catch (error: any) {
+      toast.error(error?.message || '存储扫描失败')
+    } finally {
+      setStorageScanLoading(false)
+    }
+  }
+
+  const handleClearLegacyCache = async () => {
+    setStorageActionLoading('legacy')
+    try {
+      const result = await clearLegacyCacheRoot()
+      toast.success(result.message || '旧缓存已清理')
+      const overview = await fetchStorageCleanupOverview()
+      setStorageOverview(overview)
+    } catch (error: any) {
+      toast.error(error?.message || '旧缓存清理失败')
+    } finally {
+      setStorageActionLoading('none')
+    }
+  }
+
+  const handleClearBrowserCaches = async () => {
+    setStorageActionLoading('browser')
+    try {
+      const result = await clearCurrentBrowserCaches()
+      toast.success(result.message || '实例缓存已清理')
+      const overview = await fetchStorageCleanupOverview()
+      setStorageOverview(overview)
+    } catch (error: any) {
+      toast.error(error?.message || '实例缓存清理失败')
+    } finally {
+      setStorageActionLoading('none')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -492,6 +548,14 @@ export function SettingsPage() {
         onSaveRuntimeSettings={() => { void handleAutomationRuntimeSettingsSave() }}
         onInstall={() => { void handleAutomationInstall() }}
         onSelfCheck={() => { void handleAutomationSelfCheck() }}
+      />
+
+      <StorageCleanupCard
+        overview={storageOverview}
+        busy={storageActionLoading !== 'none' ? storageActionLoading : storageScanLoading ? 'refresh' : 'none'}
+        onRefresh={() => { void refreshStorageOverview() }}
+        onClearLegacy={() => { void handleClearLegacyCache() }}
+        onClearBrowserCaches={() => { void handleClearBrowserCaches() }}
       />
 
       {/* 高级设置 */}

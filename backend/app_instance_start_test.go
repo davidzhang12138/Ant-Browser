@@ -47,6 +47,24 @@ func TestBuildBrowserLaunchArgsAddsAcceptLanguageForProfileLanguage(t *testing.T
 	}
 }
 
+func TestBuildBrowserLaunchArgsPinsDiskCacheInsideUserDataDir(t *testing.T) {
+	t.Parallel()
+
+	profile := &BrowserProfile{
+		ProfileId: "profile-cache",
+	}
+	userDataDir := t.TempDir()
+
+	got := buildBrowserLaunchArgs(profile, userDataDir, 9222, "direct://", nil, nil, nil, nil, true, false)
+	want := "--disk-cache-dir=" + filepath.Join(userDataDir, "Default", "Cache")
+	if !containsString(got, want) {
+		t.Fatalf("expected launch args to pin disk cache dir %q, got=%v", want, got)
+	}
+	if !containsString(got, "--v8-cache-options=none") {
+		t.Fatalf("expected launch args to disable V8 code cache outside the profile dir, got=%v", got)
+	}
+}
+
 func TestBuildBrowserLaunchArgsSkipsAcceptLanguageForIPBasedLanguage(t *testing.T) {
 	t.Parallel()
 
@@ -583,6 +601,8 @@ func TestSanitizeManagedLaunchArgsRemovesSystemManagedFlags(t *testing.T) {
 		"--lang=en-US",
 		"--remote-debugging-port=9222",
 		"--user-data-dir", "D:\\profiles\\demo",
+		"--disk-cache-dir=/tmp/cache",
+		"--v8-cache-options=code",
 		"--proxy-server", "http://127.0.0.1:9000",
 		"--remote-debugging-pipe",
 		"https://example.com",
@@ -596,6 +616,8 @@ func TestSanitizeManagedLaunchArgsRemovesSystemManagedFlags(t *testing.T) {
 	wantRemoved := []string{
 		"--remote-debugging-port",
 		"--user-data-dir",
+		"--disk-cache-dir",
+		"--v8-cache-options",
 		"--proxy-server",
 		"--remote-debugging-pipe",
 	}

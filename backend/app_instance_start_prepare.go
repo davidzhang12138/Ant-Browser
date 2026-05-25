@@ -236,6 +236,8 @@ func (a *App) prepareBrowserLaunchContext(input browserStartInput, profile *Brow
 func buildBrowserLaunchArgs(profile *BrowserProfile, userDataDir string, debugPort int, effectiveProxy string, sanitizedProfileLaunchArgs []string, sanitizedExtraLaunchArgs []string, startURLs []string, defaultStartURLs []string, skipDefaultStartURLs bool, restoreLastSession bool) []string {
 	args := []string{
 		fmt.Sprintf("--user-data-dir=%s", userDataDir),
+		fmt.Sprintf("--disk-cache-dir=%s", browserDiskCacheDir(userDataDir)),
+		"--v8-cache-options=none",
 		fmt.Sprintf("--remote-debugging-port=%d", debugPort),
 		"--disable-session-crashed-bubble",
 	}
@@ -269,6 +271,10 @@ func buildBrowserLaunchArgs(profile *BrowserProfile, userDataDir string, debugPo
 	args = append(args, sanitizedExtraLaunchArgs...)
 	args = ensureAcceptLanguageLaunchArg(args, browser.LocaleFromLaunchArgs(profile.FingerprintArgs, sanitizedProfileLaunchArgs, sanitizedExtraLaunchArgs))
 	return appendLaunchTargets(args, startURLs, defaultStartURLs, skipDefaultStartURLs, restoreLastSession)
+}
+
+func browserDiskCacheDir(userDataDir string) string {
+	return filepath.Join(userDataDir, "Default", "Cache")
 }
 
 var browserMajorUserAgentPattern = regexp.MustCompile(`(?i)(?:Chrome|CriOS|Edg|EdgA|Firefox)/([0-9]{2,3})`)

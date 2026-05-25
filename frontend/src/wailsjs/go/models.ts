@@ -357,6 +357,86 @@ export namespace backend {
 	        this.filePath = source["filePath"];
 	    }
 	}
+	export class StorageCleanupResult {
+	    removedBytes: number;
+	    removedPaths: number;
+	    message: string;
+
+	    static createFrom(source: any = {}) {
+	        return new StorageCleanupResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.removedBytes = source["removedBytes"];
+	        this.removedPaths = source["removedPaths"];
+	        this.message = source["message"];
+	    }
+	}
+	export class StoragePathUsage {
+	    key: string;
+	    label: string;
+	    path: string;
+	    exists: boolean;
+	    sizeBytes: number;
+	    cleanable: boolean;
+	    description: string;
+	    warning: string;
+
+	    static createFrom(source: any = {}) {
+	        return new StoragePathUsage(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.label = source["label"];
+	        this.path = source["path"];
+	        this.exists = source["exists"];
+	        this.sizeBytes = source["sizeBytes"];
+	        this.cleanable = source["cleanable"];
+	        this.description = source["description"];
+	        this.warning = source["warning"];
+	    }
+	}
+	export class StorageCleanupOverview {
+	    currentDataRoot: StoragePathUsage;
+	    legacyCacheRoot: StoragePathUsage;
+	    currentCacheBytes: number;
+	    currentProfileCount: number;
+	    skippedRunningProfiles: number;
+
+	    static createFrom(source: any = {}) {
+	        return new StorageCleanupOverview(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.currentDataRoot = this.convertValues(source["currentDataRoot"], StoragePathUsage);
+	        this.legacyCacheRoot = this.convertValues(source["legacyCacheRoot"], StoragePathUsage);
+	        this.currentCacheBytes = source["currentCacheBytes"];
+	        this.currentProfileCount = source["currentProfileCount"];
+	        this.skippedRunningProfiles = source["skippedRunningProfiles"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 
 }
 

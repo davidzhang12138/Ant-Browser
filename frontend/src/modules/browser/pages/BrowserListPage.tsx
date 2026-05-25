@@ -724,7 +724,6 @@ export function BrowserListPage() {
 
   const handleDeleteForeverFromTrash = async (profileId: string) => {
     if (trashActionId) return
-    if (!confirm('确定彻底删除该实例？实例数据目录也会被删除，此操作不可恢复。')) return
     setTrashActionId(profileId)
     try {
       await deleteBrowserProfileForever(profileId)

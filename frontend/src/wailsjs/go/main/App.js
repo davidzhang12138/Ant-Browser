@@ -334,6 +334,14 @@ export function ClearAppLogs() {
   return window['go']['main']['App']['ClearAppLogs']();
 }
 
+export function ClearCurrentBrowserCaches() {
+  return window['go']['main']['App']['ClearCurrentBrowserCaches']();
+}
+
+export function ClearLegacyCacheRoot() {
+  return window['go']['main']['App']['ClearLegacyCacheRoot']();
+}
+
 export function CreateGroup(arg1) {
   return window['go']['main']['App']['CreateGroup'](arg1);
 }
@@ -400,6 +408,10 @@ export function GetProxyCheckSettings() {
 
 export function GetRunningInstances() {
   return window['go']['main']['App']['GetRunningInstances']();
+}
+
+export function GetStorageCleanupOverview() {
+  return window['go']['main']['App']['GetStorageCleanupOverview']();
 }
 
 export function InstallAutomationRuntime() {
