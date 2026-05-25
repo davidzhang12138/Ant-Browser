@@ -96,6 +96,7 @@ func (a *App) markProfileRunningLocked(profileId string, profile *BrowserProfile
 	if debugReady && a.launchServer != nil {
 		a.launchServer.SetActiveProfile(profile)
 	}
+	a.persistProfileRuntimeStateLocked(profile)
 }
 
 func (a *App) markProfileDebugReadyLocked(profile *BrowserProfile, debugPort int) {
@@ -194,6 +195,18 @@ func isBrowserProfileLive(profile *BrowserProfile, trackedCmd *exec.Cmd) bool {
 		return isProcessAlive(trackedCmd.Process.Pid)
 	}
 	return false
+}
+
+func (a *App) persistProfileRuntimeStateLocked(profile *BrowserProfile) {
+	if a == nil || a.browserMgr == nil || a.browserMgr.ProfileDAO == nil || profile == nil {
+		return
+	}
+	if err := a.browserMgr.ProfileDAO.Upsert(profile); err != nil {
+		logger.New("Browser").Warn("实例运行时间持久化失败",
+			logger.F("profile_id", profile.ProfileId),
+			logger.F("error", err.Error()),
+		)
+	}
 }
 
 func isProcessAlive(pid int) bool {

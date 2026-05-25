@@ -292,11 +292,44 @@ func defaultFingerprintArgsForOS(goos string) []string {
 	platform := "windows"
 	switch strings.ToLower(strings.TrimSpace(goos)) {
 	case "darwin":
-		platform = "mac"
+		platform = "macos"
 	case "linux":
 		platform = "linux"
 	}
-	return []string{"--fingerprint-brand=Chrome", "--fingerprint-platform=" + platform}
+	userAgent := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
+	if platform == "macos" {
+		userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
+	} else if platform == "linux" {
+		userAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
+	}
+	return []string{
+		"--fingerprint-brand=Chrome",
+		"--fingerprint-platform=" + platform,
+		"--user-agent=" + userAgent,
+		"--lang=ip",
+		"--timezone=ip",
+		"--window-size=1920,1080",
+		"--fingerprint-color-depth=24",
+		"--fingerprint-hardware-concurrency=8",
+		"--fingerprint-device-memory=8",
+		"--fingerprint-touch-points=0",
+		"--fingerprint-webgl-image=random",
+		"--fingerprint-webgl-metadata=random",
+		"--fingerprint-webgpu=webgl",
+		"--fingerprint-canvas-noise=true",
+		"--fingerprint-audio-noise=true",
+		"--fingerprint-client-rects=random",
+		"--fingerprint-speech-voices=random",
+		"--fingerprint-device-name=random",
+		"--fingerprint-fonts=Arial,Helvetica,Times New Roman,Courier New,Verdana",
+		"--webrtc-ip-handling-policy=disable_non_proxied_udp",
+		"--geolocation-permission=ask",
+		"--geolocation-ip-based=true",
+		"--fingerprint-port-scan-protection=false",
+		"--fingerprint-cloudflare-optimize=false",
+		"--fingerprint-do-not-track=false",
+		"--fingerprint-media-devices=2,1,1",
+	}
 }
 func DefaultAutomationRuntimeVersion(nodeVersion, playwrightVersion string) string {
 	return fmt.Sprintf("node-%s-playwright-core-%s", strings.TrimSpace(nodeVersion), strings.TrimSpace(playwrightVersion))

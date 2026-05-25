@@ -5,6 +5,8 @@ import {
   type FingerprintConfig,
   FINGERPRINT_PRESETS,
   PRESET_RESOLUTIONS,
+  buildUserAgent,
+  defaultOSVersion,
   deserialize,
   getSystemTimezone,
   randomFingerprintSeed,
@@ -17,7 +19,6 @@ interface FingerprintPanelProps {
 }
 
 const BRAND_OPTIONS = [
-  { value: '', label: '不设置' },
   { value: 'Chrome', label: 'Chrome' },
   { value: 'Edge', label: 'Edge' },
   { value: 'Firefox', label: 'Firefox' },
@@ -25,25 +26,82 @@ const BRAND_OPTIONS = [
 ]
 
 const PLATFORM_OPTIONS = [
-  { value: '', label: '不设置' },
   { value: 'windows', label: 'Windows' },
-  { value: 'mac', label: 'macOS' },
+  { value: 'macos', label: 'macOS' },
   { value: 'linux', label: 'Linux' },
 ]
 
+const DEVICE_TYPE_OPTIONS = [
+  { value: 'desktop', label: '桌面' },
+  { value: 'mobile', label: '移动' },
+]
+
+const BROWSER_MAJOR_OPTIONS = [
+  { value: '139', label: '139' },
+  { value: '138', label: '138' },
+  { value: '137', label: '137' },
+  { value: '136', label: '136' },
+  { value: '135', label: '135' },
+]
+
+const OS_VERSION_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  windows: [
+    { value: '11.0', label: 'Windows 11' },
+    { value: '10.0', label: 'Windows 10' },
+    { value: '6.3', label: 'Windows 8.1' },
+    { value: '6.1', label: 'Windows 7' },
+  ],
+  macos: [
+    { value: '14_5', label: 'macOS 14.5' },
+    { value: '13_6', label: 'macOS 13.6' },
+    { value: '12_7', label: 'macOS 12.7' },
+  ],
+  linux: [
+    { value: 'x86_64', label: 'Linux x86_64' },
+  ],
+}
+
+const MOBILE_OS_VERSION_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  mac: [
+    { value: '17_5', label: 'iOS 17.5' },
+    { value: '16_7', label: 'iOS 16.7' },
+  ],
+  default: [
+    { value: '14', label: 'Android 14' },
+    { value: '13', label: 'Android 13' },
+    { value: '12', label: 'Android 12' },
+  ],
+}
+
+function getOSVersionOptions(platform?: string, deviceType = 'desktop') {
+  if (deviceType === 'mobile') {
+    return platform === 'macos' || platform === 'mac' ? MOBILE_OS_VERSION_OPTIONS.mac : MOBILE_OS_VERSION_OPTIONS.default
+  }
+  return OS_VERSION_OPTIONS[platform || 'windows'] ?? OS_VERSION_OPTIONS.windows
+}
+
+function defaultWebglRenderer(vendor?: string) {
+  if (!vendor || vendor === 'random') return 'random'
+  return (WEBGL_RENDERER_OPTIONS[vendor] ?? WEBGL_RENDERER_OPTIONS.Intel)[0]?.value || 'random'
+}
+
 const LANG_OPTIONS = [
-  { value: '', label: '不设置' },
+  { value: 'ip', label: '基于访问 IP' },
   { value: 'zh-CN', label: '中文 (zh-CN)' },
   { value: 'en-US', label: 'English (en-US)' },
   { value: 'en-GB', label: 'English (en-GB)' },
+  { value: 'es-ES', label: 'Español (es-ES)' },
   { value: 'ja-JP', label: '日本語 (ja-JP)' },
   { value: 'ko-KR', label: '한국어 (ko-KR)' },
   { value: 'fr-FR', label: 'Français (fr-FR)' },
   { value: 'de-DE', label: 'Deutsch (de-DE)' },
+  { value: 'it-IT', label: 'Italiano (it-IT)' },
+  { value: 'pt-BR', label: 'Português (pt-BR)' },
+  { value: 'ru-RU', label: 'Русский (ru-RU)' },
 ]
 
 const TIMEZONE_OPTIONS = [
-  { value: '', label: '不设置' },
+  { value: 'ip', label: '基于访问 IP' },
   { value: 'system', label: '跟随系统时区' },
   // 亚洲
   { value: 'Asia/Shanghai', label: 'Asia/Shanghai (UTC+8)' },
@@ -71,13 +129,12 @@ const TIMEZONE_OPTIONS = [
 ]
 
 const RESOLUTION_OPTIONS = [
-  { value: '', label: '不设置' },
   ...PRESET_RESOLUTIONS.map(r => ({ value: r, label: r })),
   { value: 'custom', label: '自定义...' },
 ]
 
 const WEBGL_VENDOR_OPTIONS = [
-  { value: '', label: '不设置' },
+  { value: 'random', label: '随机' },
   { value: 'Intel', label: 'Intel' },
   { value: 'NVIDIA', label: 'NVIDIA' },
   { value: 'AMD', label: 'AMD' },
@@ -85,8 +142,11 @@ const WEBGL_VENDOR_OPTIONS = [
 ]
 
 const WEBGL_RENDERER_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  random: [
+    { value: 'random', label: '随机' },
+  ],
   Intel: [
-    { value: '', label: '不设置' },
+    { value: 'random', label: '随机' },
     { value: 'Intel(R) UHD Graphics 630', label: 'UHD Graphics 630' },
     { value: 'Intel(R) UHD Graphics 620', label: 'UHD Graphics 620' },
     { value: 'Intel(R) HD Graphics 520', label: 'HD Graphics 520' },
@@ -94,7 +154,7 @@ const WEBGL_RENDERER_OPTIONS: Record<string, { value: string; label: string }[]>
     { value: 'custom', label: '自定义...' },
   ],
   NVIDIA: [
-    { value: '', label: '不设置' },
+    { value: 'random', label: '随机' },
     { value: 'NVIDIA GeForce RTX 3080', label: 'GeForce RTX 3080' },
     { value: 'NVIDIA GeForce RTX 3060', label: 'GeForce RTX 3060' },
     { value: 'NVIDIA GeForce GTX 1660', label: 'GeForce GTX 1660' },
@@ -102,14 +162,14 @@ const WEBGL_RENDERER_OPTIONS: Record<string, { value: string; label: string }[]>
     { value: 'custom', label: '自定义...' },
   ],
   AMD: [
-    { value: '', label: '不设置' },
+    { value: 'random', label: '随机' },
     { value: 'AMD Radeon RX 6600', label: 'Radeon RX 6600' },
     { value: 'AMD Radeon RX 580', label: 'Radeon RX 580' },
     { value: 'AMD Radeon Vega 8', label: 'Radeon Vega 8' },
     { value: 'custom', label: '自定义...' },
   ],
   Apple: [
-    { value: '', label: '不设置' },
+    { value: 'random', label: '随机' },
     { value: 'Apple M1', label: 'Apple M1' },
     { value: 'Apple M2', label: 'Apple M2' },
     { value: 'Apple M3', label: 'Apple M3' },
@@ -118,13 +178,29 @@ const WEBGL_RENDERER_OPTIONS: Record<string, { value: string; label: string }[]>
 }
 
 const BOOL_OPTIONS = [
-  { value: '', label: '不设置' },
   { value: 'true', label: '启用' },
   { value: 'false', label: '禁用' },
 ]
 
+const MODE_OPTIONS = [
+  { value: 'random', label: '随机' },
+  { value: 'real', label: '真实' },
+  { value: 'disabled', label: '关闭' },
+]
+
+const CUSTOM_MODE_OPTIONS = [
+  { value: 'random', label: '随机' },
+  { value: 'custom', label: '自定义' },
+  { value: 'disabled', label: '关闭' },
+]
+
+const GEOLOCATION_PERMISSION_OPTIONS = [
+  { value: 'ask', label: '询问' },
+  { value: 'allow', label: '允许' },
+  { value: 'block', label: '禁用' },
+]
+
 const HARDWARE_CONCURRENCY_OPTIONS = [
-  { value: '', label: '不设置' },
   { value: '2', label: '2 核' },
   { value: '4', label: '4 核' },
   { value: '6', label: '6 核' },
@@ -135,7 +211,6 @@ const HARDWARE_CONCURRENCY_OPTIONS = [
 ]
 
 const DEVICE_MEMORY_OPTIONS = [
-  { value: '', label: '不设置' },
   { value: '2', label: '2 GB' },
   { value: '4', label: '4 GB' },
   { value: '8', label: '8 GB' },
@@ -144,21 +219,21 @@ const DEVICE_MEMORY_OPTIONS = [
 ]
 
 const COLOR_DEPTH_OPTIONS = [
-  { value: '', label: '不设置' },
   { value: '24', label: '24 位（标准）' },
   { value: '30', label: '30 位（HDR）' },
   { value: '32', label: '32 位' },
 ]
 
 const WEBRTC_OPTIONS = [
-  { value: '', label: '不设置' },
-  { value: 'disable_non_proxied_udp', label: '禁用非代理 UDP（推荐）' },
-  { value: 'default_public_interface_only', label: '仅公网接口' },
+  { value: 'default', label: '转发' },
+  { value: 'disable_non_proxied_udp', label: '替换（推荐）' },
+  { value: 'default_public_interface_only', label: '真实' },
+  { value: 'disable_udp', label: '禁用 UDP' },
+  { value: 'disabled', label: '禁用' },
   { value: 'default_public_and_private_interfaces', label: '公网+私网接口' },
 ]
 
 const TOUCH_POINTS_OPTIONS = [
-  { value: '', label: '不设置' },
   { value: '0', label: '0（无触摸）' },
   { value: '1', label: '1 点触摸' },
   { value: '5', label: '5 点触摸' },
@@ -173,7 +248,7 @@ const PRESET_OPTIONS = [
 export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
   const [config, setConfig] = useState<FingerprintConfig>(() => deserialize(value))
   const [advancedOpen, setAdvancedOpen] = useState(false)
-  const [, setCustomRenderer] = useState('')
+  const [customRenderer, setCustomRenderer] = useState('')
   const [confirmSeedOpen, setConfirmSeedOpen] = useState(false)
 
   useEffect(() => {
@@ -186,6 +261,13 @@ export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
     onChange(serialize(next))
   }
 
+  const updateUA = (patch: Partial<FingerprintConfig>) => {
+    const next = { ...config, ...patch }
+    const withUserAgent = { ...next, userAgent: buildUserAgent(next) }
+    setConfig(withUserAgent)
+    onChange(serialize(withUserAgent))
+  }
+
   const handlePresetChange = (presetId: string) => {
     if (!presetId) return
     const preset = FINGERPRINT_PRESETS.find(p => p.id === presetId)
@@ -196,6 +278,7 @@ export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
       seed: randomFingerprintSeed(),
       unknownArgs: config.unknownArgs,
     }
+    next.userAgent = buildUserAgent(next)
     setConfig(next)
     onChange(serialize(next))
   }
@@ -208,14 +291,15 @@ export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
   }
 
   const rendererOptions = config.webglVendor
-    ? (WEBGL_RENDERER_OPTIONS[config.webglVendor] ?? [{ value: '', label: '不设置' }, { value: 'custom', label: '自定义...' }])
-    : [{ value: '', label: '不设置' }]
+    ? (WEBGL_RENDERER_OPTIONS[config.webglVendor] ?? [{ value: 'random', label: '随机' }, { value: 'custom', label: '自定义...' }])
+    : WEBGL_RENDERER_OPTIONS.random
 
   const isCustomRenderer = config.webglRenderer
-    ? !rendererOptions.some(o => o.value === config.webglRenderer && o.value !== 'custom')
+    ? config.webglRenderer === 'custom' || !rendererOptions.some(o => o.value === config.webglRenderer && o.value !== 'custom')
     : false
 
   const advancedText = serialize(config).join('\n')
+  const uaOSOptions = getOSVersionOptions(config.platform, config.deviceType || 'desktop')
 
   return (
     <div className="space-y-4">
@@ -277,21 +361,52 @@ export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
       <div>
         <p className="text-xs font-medium text-[var(--color-text-muted)] mb-2 uppercase tracking-wide">基础身份</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormItem label="设备类型">
+            <Select
+              value={config.deviceType ?? 'desktop'}
+              onChange={e => updateUA({ deviceType: e.target.value || 'desktop', osVersion: defaultOSVersion(config.platform, e.target.value || 'desktop') })}
+              options={DEVICE_TYPE_OPTIONS}
+            />
+          </FormItem>
           <FormItem label="浏览器品牌">
-            <Select value={config.brand ?? ''} onChange={e => update({ brand: e.target.value || undefined })} options={BRAND_OPTIONS} />
+            <Select value={config.brand ?? 'Chrome'} onChange={e => updateUA({ brand: e.target.value || 'Chrome' })} options={BRAND_OPTIONS} />
           </FormItem>
           <FormItem label="操作系统">
-            <Select value={config.platform ?? ''} onChange={e => update({ platform: e.target.value || undefined })} options={PLATFORM_OPTIONS} />
+            <Select
+              value={config.platform ?? 'windows'}
+              onChange={e => updateUA({ platform: e.target.value || 'windows', osVersion: defaultOSVersion(e.target.value, config.deviceType || 'desktop') })}
+              options={PLATFORM_OPTIONS}
+            />
+          </FormItem>
+          <FormItem label="系统版本">
+            <Select
+              value={config.osVersion ?? defaultOSVersion(config.platform, config.deviceType || 'desktop')}
+              onChange={e => updateUA({ osVersion: e.target.value || undefined })}
+              options={uaOSOptions}
+            />
+          </FormItem>
+          <FormItem label="浏览器大版本">
+            <Select value={config.browserMajor ?? '139'} onChange={e => updateUA({ browserMajor: e.target.value || '139' })} options={BROWSER_MAJOR_OPTIONS} />
           </FormItem>
           <FormItem label="语言">
-            <Select value={config.lang ?? ''} onChange={e => update({ lang: e.target.value || undefined })} options={LANG_OPTIONS} />
+            <Select value={config.lang ?? 'ip'} onChange={e => update({ lang: e.target.value || 'ip' })} options={LANG_OPTIONS} />
           </FormItem>
           <FormItem label="时区">
-            <Select value={config.timezone ?? ''} onChange={e => update({ timezone: e.target.value || undefined })} options={TIMEZONE_OPTIONS.map(opt =>
+            <Select value={config.timezone ?? 'ip'} onChange={e => update({ timezone: e.target.value || 'ip' })} options={TIMEZONE_OPTIONS.map(opt =>
               opt.value === 'system'
                 ? { ...opt, label: `跟随系统时区 (当前: ${getSystemTimezone()})` }
                 : opt
             )} />
+          </FormItem>
+        </div>
+        <div className="mt-4">
+          <FormItem label="User Agent">
+            <Textarea
+              value={config.userAgent ?? buildUserAgent(config)}
+              onChange={e => update({ userAgent: e.target.value || undefined })}
+              rows={2}
+              placeholder="Mozilla/5.0 ..."
+            />
           </FormItem>
         </div>
       </div>
@@ -302,8 +417,8 @@ export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormItem label="分辨率">
             <Select
-              value={config.resolution ?? ''}
-              onChange={e => update({ resolution: e.target.value || undefined, customResolution: undefined })}
+              value={config.resolution ?? '1920,1080'}
+              onChange={e => update({ resolution: e.target.value || '1920,1080', customResolution: undefined })}
               options={RESOLUTION_OPTIONS}
             />
           </FormItem>
@@ -313,16 +428,16 @@ export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
             </FormItem>
           )}
           <FormItem label="色深">
-            <Select value={config.colorDepth ?? ''} onChange={e => update({ colorDepth: e.target.value || undefined })} options={COLOR_DEPTH_OPTIONS} />
+            <Select value={config.colorDepth ?? '24'} onChange={e => update({ colorDepth: e.target.value || '24' })} options={COLOR_DEPTH_OPTIONS} />
           </FormItem>
           <FormItem label="CPU 核心数">
-            <Select value={config.hardwareConcurrency ?? ''} onChange={e => update({ hardwareConcurrency: e.target.value || undefined })} options={HARDWARE_CONCURRENCY_OPTIONS} />
+            <Select value={config.hardwareConcurrency ?? '8'} onChange={e => update({ hardwareConcurrency: e.target.value || '8' })} options={HARDWARE_CONCURRENCY_OPTIONS} />
           </FormItem>
           <FormItem label="设备内存">
-            <Select value={config.deviceMemory ?? ''} onChange={e => update({ deviceMemory: e.target.value || undefined })} options={DEVICE_MEMORY_OPTIONS} />
+            <Select value={config.deviceMemory ?? '8'} onChange={e => update({ deviceMemory: e.target.value || '8' })} options={DEVICE_MEMORY_OPTIONS} />
           </FormItem>
           <FormItem label="触摸点数">
-            <Select value={config.touchPoints ?? ''} onChange={e => update({ touchPoints: e.target.value || undefined })} options={TOUCH_POINTS_OPTIONS} />
+            <Select value={config.touchPoints ?? '0'} onChange={e => update({ touchPoints: e.target.value || '0' })} options={TOUCH_POINTS_OPTIONS} />
           </FormItem>
         </div>
       </div>
@@ -333,27 +448,33 @@ export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormItem label="WebGL 供应商">
             <Select
-              value={config.webglVendor ?? ''}
-              onChange={e => update({ webglVendor: e.target.value || undefined, webglRenderer: undefined })}
+              value={config.webglVendor ?? 'random'}
+              onChange={e => {
+                const vendor = e.target.value || 'random'
+                update({ webglVendor: vendor, webglRenderer: defaultWebglRenderer(vendor) })
+              }}
               options={WEBGL_VENDOR_OPTIONS}
             />
           </FormItem>
           <FormItem label="WebGL 渲染器">
             {isCustomRenderer ? (
               <Input
-                value={config.webglRenderer ?? ''}
-                onChange={e => update({ webglRenderer: e.target.value || undefined })}
+                value={config.webglRenderer === 'custom' ? customRenderer : config.webglRenderer ?? ''}
+                onChange={e => {
+                  setCustomRenderer(e.target.value)
+                  update({ webglRenderer: e.target.value || 'custom' })
+                }}
                 placeholder="自定义渲染器名称"
               />
             ) : (
               <Select
-                value={config.webglRenderer ?? ''}
+                value={config.webglRenderer ?? defaultWebglRenderer(config.webglVendor)}
                 onChange={e => {
                   if (e.target.value === 'custom') {
                     setCustomRenderer('')
-                    update({ webglRenderer: undefined })
+                    update({ webglRenderer: 'custom' })
                   } else {
-                    update({ webglRenderer: e.target.value || undefined })
+                    update({ webglRenderer: e.target.value || defaultWebglRenderer(config.webglVendor) })
                   }
                 }}
                 options={rendererOptions}
@@ -363,16 +484,68 @@ export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
           </FormItem>
           <FormItem label="Canvas 噪声">
             <Select
-              value={config.canvasNoise === undefined ? '' : String(config.canvasNoise)}
-              onChange={e => { const v = e.target.value; update({ canvasNoise: v === '' ? undefined : v === 'true' }) }}
-              options={BOOL_OPTIONS}
+              value={config.canvasNoise === undefined ? 'true' : String(config.canvasNoise)}
+              onChange={e => update({ canvasNoise: e.target.value !== 'false' })}
+              options={[
+                { value: 'true', label: '随机' },
+                { value: 'false', label: '关闭' },
+              ]}
+            />
+          </FormItem>
+          <FormItem label="WebGL 图像">
+            <Select
+              value={config.webglImageMode ?? 'random'}
+              onChange={e => update({ webglImageMode: e.target.value || 'random' })}
+              options={CUSTOM_MODE_OPTIONS}
+            />
+          </FormItem>
+          <FormItem label="WebGL 元数据">
+            <Select
+              value={config.webglMetadataMode ?? 'random'}
+              onChange={e => update({ webglMetadataMode: e.target.value || 'random' })}
+              options={CUSTOM_MODE_OPTIONS}
+            />
+          </FormItem>
+          <FormItem label="WebGPU">
+            <Select
+              value={config.webgpuMode ?? 'webgl'}
+              onChange={e => update({ webgpuMode: e.target.value || 'webgl' })}
+              options={[
+                { value: 'webgl', label: '基于 WebGL' },
+                { value: 'real', label: '真实' },
+                { value: 'disabled', label: '禁用' },
+              ]}
             />
           </FormItem>
           <FormItem label="Audio 噪声">
             <Select
-              value={config.audioNoise === undefined ? '' : String(config.audioNoise)}
-              onChange={e => { const v = e.target.value; update({ audioNoise: v === '' ? undefined : v === 'true' }) }}
-              options={BOOL_OPTIONS}
+              value={config.audioNoise === undefined ? 'true' : String(config.audioNoise)}
+              onChange={e => update({ audioNoise: e.target.value !== 'false' })}
+              options={[
+                { value: 'true', label: '随机' },
+                { value: 'false', label: '关闭' },
+              ]}
+            />
+          </FormItem>
+          <FormItem label="ClientRects">
+            <Select
+              value={config.clientRectsMode ?? 'random'}
+              onChange={e => update({ clientRectsMode: e.target.value || 'random' })}
+              options={MODE_OPTIONS}
+            />
+          </FormItem>
+          <FormItem label="SpeechVoices">
+            <Select
+              value={config.speechVoicesMode ?? 'random'}
+              onChange={e => update({ speechVoicesMode: e.target.value || 'random' })}
+              options={MODE_OPTIONS}
+            />
+          </FormItem>
+          <FormItem label="设备名称">
+            <Select
+              value={config.deviceNameMode ?? 'random'}
+              onChange={e => update({ deviceNameMode: e.target.value || 'random' })}
+              options={CUSTOM_MODE_OPTIONS}
             />
           </FormItem>
         </div>
@@ -383,19 +556,50 @@ export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
         <p className="text-xs font-medium text-[var(--color-text-muted)] mb-2 uppercase tracking-wide">网络与隐私</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormItem label="WebRTC 策略">
-            <Select value={config.webrtcPolicy ?? ''} onChange={e => update({ webrtcPolicy: e.target.value || undefined })} options={WEBRTC_OPTIONS} />
+            <Select value={config.webrtcPolicy ?? 'disable_non_proxied_udp'} onChange={e => update({ webrtcPolicy: e.target.value || 'disable_non_proxied_udp' })} options={WEBRTC_OPTIONS} />
           </FormItem>
           <FormItem label="Do Not Track">
             <Select
-              value={config.doNotTrack === undefined ? '' : String(config.doNotTrack)}
-              onChange={e => { const v = e.target.value; update({ doNotTrack: v === '' ? undefined : v === 'true' }) }}
+              value={config.doNotTrack === undefined ? 'false' : String(config.doNotTrack)}
+              onChange={e => update({ doNotTrack: e.target.value === 'true' })}
+              options={[
+                { value: 'true', label: '开启' },
+                { value: 'false', label: '关闭' },
+              ]}
+            />
+          </FormItem>
+          <FormItem label="地理位置权限">
+            <Select
+              value={config.geolocationPermission ?? 'ask'}
+              onChange={e => update({ geolocationPermission: e.target.value || 'ask' })}
+              options={GEOLOCATION_PERMISSION_OPTIONS}
+            />
+          </FormItem>
+          <FormItem label="地理位置基于 IP">
+            <Select
+              value={config.geolocationBasedOnIp === undefined ? 'true' : String(config.geolocationBasedOnIp)}
+              onChange={e => update({ geolocationBasedOnIp: e.target.value !== 'false' })}
+              options={BOOL_OPTIONS}
+            />
+          </FormItem>
+          <FormItem label="端口扫描保护">
+            <Select
+              value={config.portScanProtection === undefined ? 'false' : String(config.portScanProtection)}
+              onChange={e => update({ portScanProtection: e.target.value === 'true' })}
+              options={BOOL_OPTIONS}
+            />
+          </FormItem>
+          <FormItem label="Cloudflare 验证优化">
+            <Select
+              value={config.cloudflareOptimize === undefined ? 'false' : String(config.cloudflareOptimize)}
+              onChange={e => update({ cloudflareOptimize: e.target.value === 'true' })}
               options={BOOL_OPTIONS}
             />
           </FormItem>
           <FormItem label="媒体设备 (摄像头,麦克风,扬声器)">
             <Input
-              value={config.mediaDevices ?? ''}
-              onChange={e => update({ mediaDevices: e.target.value || undefined })}
+              value={config.mediaDevices ?? '2,1,1'}
+              onChange={e => update({ mediaDevices: e.target.value || '2,1,1' })}
               placeholder="2,1,1"
             />
           </FormItem>
@@ -407,8 +611,8 @@ export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
         <p className="text-xs font-medium text-[var(--color-text-muted)] mb-2 uppercase tracking-wide">字体</p>
         <FormItem label="字体列表">
           <Input
-            value={config.fonts ?? ''}
-            onChange={e => update({ fonts: e.target.value || undefined })}
+            value={config.fonts ?? 'Arial,Helvetica,Times New Roman,Courier New,Verdana'}
+            onChange={e => update({ fonts: e.target.value || 'Arial,Helvetica,Times New Roman,Courier New,Verdana' })}
             placeholder="Arial,Helvetica,Times New Roman（逗号分隔）"
           />
         </FormItem>

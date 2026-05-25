@@ -111,13 +111,13 @@ func TestDefaultFingerprintArgsForOS(t *testing.T) {
 	tests := map[string]string{
 		"windows": "--fingerprint-platform=windows",
 		"linux":   "--fingerprint-platform=linux",
-		"darwin":  "--fingerprint-platform=mac",
+		"darwin":  "--fingerprint-platform=macos",
 		"freebsd": "--fingerprint-platform=windows",
 	}
 
 	for goos, want := range tests {
 		got := defaultFingerprintArgsForOS(goos)
-		if len(got) != 2 {
+		if len(got) < 2 {
 			t.Fatalf("%s: unexpected args length: got=%v", goos, got)
 		}
 		if got[1] != want {

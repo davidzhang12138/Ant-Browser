@@ -73,6 +73,14 @@ const getTimeValue = (value?: string) => {
   return Number.isNaN(timestamp) ? 0 : timestamp
 }
 
+const getProfileNumericId = (profile: BrowserProfile) => Number(profile.id || 0)
+
+const compareProfileId = (a: BrowserProfile, b: BrowserProfile) => {
+  const idDiff = getProfileNumericId(a) - getProfileNumericId(b)
+  if (idDiff !== 0) return idDiff
+  return (a.profileId || '').localeCompare(b.profileId || '')
+}
+
 export function BrowserListPage() {
   const [profiles, setProfiles] = useState<BrowserProfile[]>([])
   const [loading, setLoading] = useState(true)
@@ -87,8 +95,8 @@ export function BrowserListPage() {
   // 勾选状态
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [batchLoading, setBatchLoading] = useState(false)
-  const [sortColumn, setSortColumn] = useState('profileName')
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
+  const [sortColumn, setSortColumn] = useState('serial')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
@@ -395,22 +403,33 @@ export function BrowserListPage() {
     })
   }, [profiles, filters, defaultCore, cores])
 
+  const profileSerialNumbers = useMemo(() => (
+    new Map(
+      [...profiles]
+        .sort(compareProfileId)
+        .map((item, index) => [item.profileId, getProfileNumericId(item) || index + 1])
+    )
+  ), [profiles])
+
   const sortedProfiles = useMemo(() => {
     const items = [...filteredProfiles]
     const direction = sortOrder === 'desc' ? -1 : 1
 
     if (!sortOrder) {
-      return items.sort((a, b) => naturalCompare(a.profileName, b.profileName))
+      return items
     }
 
     return items.sort((a, b) => {
       let result = 0
       switch (sortColumn) {
-        case 'profileId':
-          result = naturalCompare(a.profileId || '', b.profileId || '')
+        case 'serial':
+          result = compareProfileId(a, b)
           break
         case 'createdAt':
           result = getTimeValue(a.createdAt) - getTimeValue(b.createdAt)
+          if (result === 0) {
+            result = compareProfileId(a, b)
+          }
           break
         case 'lastStartAt':
           result = getTimeValue(a.lastStartAt) - getTimeValue(b.lastStartAt)
@@ -423,7 +442,7 @@ export function BrowserListPage() {
 
       return result * direction
     })
-  }, [filteredProfiles, sortColumn, sortOrder])
+  }, [filteredProfiles, profileSerialNumbers, sortColumn, sortOrder])
 
   const totalPages = Math.max(1, Math.ceil(sortedProfiles.length / pageSize))
 
@@ -821,7 +840,9 @@ export function BrowserListPage() {
         profiles={pagedProfiles}
         totalCount={filteredProfiles.length}
         proxies={proxies}
+        groups={groups}
         selectedIds={selectedIds}
+        serialNumbers={profileSerialNumbers}
         sortColumn={sortColumn}
         sortOrder={sortOrder}
         currentPage={currentPage}
@@ -838,7 +859,6 @@ export function BrowserListPage() {
         onSortChange={handleSortChange}
         onPageChange={setCurrentPage}
         onPageSizeChange={setPageSize}
-        onRefreshProfiles={() => { void loadProfiles() }}
         onStart={(profileId) => { void handleStart(profileId) }}
         onStop={(profileId) => { void handleStop(profileId) }}
         onRestart={(profileId) => { void handleRestart(profileId) }}

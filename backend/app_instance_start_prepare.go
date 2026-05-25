@@ -126,6 +126,14 @@ func (a *App) prepareBrowserStartPlan(input browserStartInput, profile *BrowserP
 	startReadyTimeout, startStableWindow := a.browserStartTimingSettings()
 	maxStartAttempts := browserStartAttemptCount()
 	totalReadyTimeout := time.Duration(maxStartAttempts) * startReadyTimeout
+	restoreLastSession := browserRestoreLastSession(a.config)
+	defaultStartURLs, startPageErr := a.browserDefaultLaunchTargets(input, profile, restoreLastSession, time.Now())
+	if startPageErr != nil {
+		logger.New("Browser").Warn("默认实例启动页生成失败，回退空白页",
+			logger.F("profile_id", input.ProfileID),
+			logger.F("error", startPageErr.Error()),
+		)
+	}
 
 	assignedDebugPort, err := nextAvailablePort()
 	if err != nil {
@@ -143,7 +151,7 @@ func (a *App) prepareBrowserStartPlan(input browserStartInput, profile *BrowserP
 		profile:               profile,
 		chromeBinaryPath:      chromeBinaryPath,
 		userDataDir:           userDataDir,
-		args:                  buildBrowserLaunchArgs(profile, userDataDir, assignedDebugPort, effectiveProxy, sanitizedProfileLaunchArgs, sanitizedExtraLaunchArgs, input.StartURLs, a.browserDefaultStartURLs(), input.SkipDefaultStartURLs, browserRestoreLastSession(a.config)),
+		args:                  buildBrowserLaunchArgs(profile, userDataDir, assignedDebugPort, effectiveProxy, sanitizedProfileLaunchArgs, sanitizedExtraLaunchArgs, input.StartURLs, defaultStartURLs, input.SkipDefaultStartURLs, restoreLastSession),
 		effectiveProxy:        effectiveProxy,
 		acquiredXrayBridgeKey: acquiredXrayBridgeKey,
 		releaseXrayBridge:     releaseXrayBridge,
@@ -195,6 +203,12 @@ func (a *App) prepareBrowserLaunchContext(input browserStartInput, profile *Brow
 
 	if err := browser.EnsureDefaultBookmarks(userDataDir, a.BookmarkList()); err != nil {
 		log.Error("默认书签写入失败", logger.F("error", err.Error()))
+	}
+
+	if locale := browser.LocaleFromLaunchArgs(profile.FingerprintArgs, sanitizedProfileLaunchArgs, sanitizedExtraLaunchArgs); locale != "" {
+		if err := browser.EnsureChromeLocale(userDataDir, locale); err != nil {
+			log.Error("浏览器语言偏好写入失败", logger.F("profile_id", input.ProfileID), logger.F("locale", locale), logger.F("error", err.Error()))
+		}
 	}
 
 	if !browserRestoreLastSession(a.config) {
@@ -249,5 +263,25 @@ func buildBrowserLaunchArgs(profile *BrowserProfile, userDataDir string, debugPo
 	args = append(args, profile.FingerprintArgs...)
 	args = append(args, sanitizedProfileLaunchArgs...)
 	args = append(args, sanitizedExtraLaunchArgs...)
+	args = ensureAcceptLanguageLaunchArg(args, browser.LocaleFromLaunchArgs(profile.FingerprintArgs, sanitizedProfileLaunchArgs, sanitizedExtraLaunchArgs))
 	return appendLaunchTargets(args, startURLs, defaultStartURLs, skipDefaultStartURLs, restoreLastSession)
+}
+
+func ensureAcceptLanguageLaunchArg(args []string, locale string) []string {
+	if strings.TrimSpace(locale) == "" {
+		return args
+	}
+	for _, arg := range args {
+		value := strings.TrimSpace(arg)
+		if strings.EqualFold(value, "--accept-lang") ||
+			strings.HasPrefix(strings.ToLower(value), "--accept-lang=") ||
+			strings.HasPrefix(strings.ToLower(value), "--accept-language=") {
+			return args
+		}
+	}
+	acceptLanguages := browser.ChromeAcceptLanguages(locale)
+	if acceptLanguages == "" {
+		return args
+	}
+	return append(args, fmt.Sprintf("--accept-lang=%s", acceptLanguages))
 }

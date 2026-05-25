@@ -9,6 +9,7 @@ import (
 
 // Profile 浏览器配置文件
 type Profile struct {
+	ID                 int64    `json:"id"`
 	ProfileId          string   `json:"profileId"`
 	ProfileName        string   `json:"profileName"`
 	UserDataDir        string   `json:"userDataDir"`

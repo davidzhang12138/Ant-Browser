@@ -4,9 +4,9 @@ import { ChevronLeft, ChevronRight, Copy, Key, Play, RotateCcw, Settings, Square
 import { Badge, Button, Card, Table } from '../../../shared/components'
 import type { SortOrder, SorterResult, TableColumn } from '../../../shared/components/Table'
 
-import type { BrowserCore, BrowserProfile, BrowserProxy } from '../types'
+import type { BrowserCore, BrowserGroupWithCount, BrowserProfile, BrowserProxy } from '../types'
 import type { BrowserViewMode } from './BrowserListLayout'
-import { KeywordInlineRow, LaunchCodeCell } from './BrowserListWidgets'
+import { KeywordInlineRow } from './BrowserListWidgets'
 
 type ProfileStatusVariant = 'default' | 'success' | 'error' | 'warning' | 'info'
 
@@ -21,7 +21,9 @@ interface BrowserProfilesPanelProps {
   profiles: BrowserProfile[]
   totalCount: number
   proxies: BrowserProxy[]
+  groups: BrowserGroupWithCount[]
   selectedIds: Set<string>
+  serialNumbers: Map<string, number>
   sortColumn: string
   sortOrder: SortOrder
   currentPage: number
@@ -38,7 +40,6 @@ interface BrowserProfilesPanelProps {
   onSortChange: (sorter: SorterResult) => void
   onPageChange: (page: number) => void
   onPageSizeChange: (pageSize: number) => void
-  onRefreshProfiles: () => void
   onStart: (profileId: string) => void
   onStop: (profileId: string) => void
   onRestart: (profileId: string) => void
@@ -51,12 +52,6 @@ const formatTime = (value?: string) => {
   if (!value) return '-'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('zh-CN')
-}
-
-const shortProfileId = (value: string) => {
-  if (!value) return '-'
-  if (value.length <= 12) return value
-  return `${value.slice(0, 8)}...${value.slice(-4)}`
 }
 
 function formatProxyLabel(profile: BrowserProfile, proxy?: BrowserProxy): string {
@@ -75,7 +70,9 @@ function formatProxyLabel(profile: BrowserProfile, proxy?: BrowserProxy): string
 
 function BrowserProfileCard({
   profile,
+  serialNumber,
   proxy,
+  groupLabel,
   isSelected,
   status,
   coreLabel,
@@ -83,7 +80,6 @@ function BrowserProfileCard({
   isStopping,
   isBusy,
   onToggleSelect,
-  onRefreshProfiles,
   onStart,
   onStop,
   onRestart,
@@ -92,7 +88,9 @@ function BrowserProfileCard({
   onDelete,
 }: {
   profile: BrowserProfile
+  serialNumber: number
   proxy: BrowserProxy | undefined
+  groupLabel: string
   isSelected: boolean
   status: ProfileStatus
   coreLabel: string
@@ -100,7 +98,6 @@ function BrowserProfileCard({
   isStopping: boolean
   isBusy: boolean
   onToggleSelect: (profileId: string) => void
-  onRefreshProfiles: () => void
   onStart: (profileId: string) => void
   onStop: (profileId: string) => void
   onRestart: (profileId: string) => void
@@ -128,9 +125,8 @@ function BrowserProfileCard({
             </Link>
             <span
               className="max-w-[180px] truncate rounded bg-[var(--color-bg-muted)] px-2 py-0.5 text-xs font-medium text-[var(--color-text-muted)]"
-              title={profile.profileId}
             >
-              序号 {shortProfileId(profile.profileId)}
+              序号 {serialNumber}
             </span>
             {profile.tags && profile.tags.length > 0 && (
               <div className="flex gap-1 ml-1">
@@ -165,7 +161,7 @@ function BrowserProfileCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2 shrink-0">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-2 shrink-0">
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-[var(--color-text-muted)] font-medium">内核版本</span>
           <span className="text-xs text-[var(--color-text-primary)]">{coreLabel}</span>
@@ -177,8 +173,8 @@ function BrowserProfileCard({
           </span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="text-xs text-[var(--color-text-muted)] font-medium">快捷配置码</span>
-          <div className="mt-0.5"><LaunchCodeCell profileId={profile.profileId} code={profile.launchCode || ''} onRefresh={onRefreshProfiles} /></div>
+          <span className="text-xs text-[var(--color-text-muted)] font-medium">分组</span>
+          <span className="text-xs text-[var(--color-text-primary)] truncate" title={groupLabel}>{groupLabel}</span>
         </div>
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-[var(--color-text-muted)] font-medium">时间</span>
@@ -203,7 +199,9 @@ export function BrowserProfilesPanel({
   profiles,
   totalCount,
   proxies,
+  groups,
   selectedIds,
+  serialNumbers,
   sortColumn,
   sortOrder,
   currentPage,
@@ -220,7 +218,6 @@ export function BrowserProfilesPanel({
   onSortChange,
   onPageChange,
   onPageSizeChange,
-  onRefreshProfiles,
   onStart,
   onStop,
   onRestart,
@@ -231,6 +228,11 @@ export function BrowserProfilesPanel({
   const allSelected = totalCount > 0 && selectedIds.size === totalCount
   const partiallySelected = selectedIds.size > 0 && selectedIds.size < totalCount
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const groupNameById = new Map(groups.map(group => [group.groupId, group.groupName]))
+  const getGroupLabel = (profile: BrowserProfile) => {
+    if (!profile.groupId) return '未分组'
+    return groupNameById.get(profile.groupId) || profile.groupId
+  }
 
   const columns: TableColumn<BrowserProfile>[] = [
     {
@@ -265,16 +267,13 @@ export function BrowserProfilesPanel({
       ),
     },
     {
-      key: 'profileId',
+      key: 'serial',
       title: '序号',
-      width: 132,
+      width: 76,
       sortable: true,
-      render: (value) => (
-        <span
-          className="inline-flex max-w-[112px] items-center justify-center truncate rounded-md bg-[var(--color-bg-muted)] px-2.5 py-1 text-xs font-semibold text-[var(--color-text-primary)]"
-          title={value}
-        >
-          {shortProfileId(value || '')}
+      render: (_, record) => (
+        <span className="inline-flex min-w-8 items-center justify-center rounded-md bg-[var(--color-bg-muted)] px-2.5 py-1 text-xs font-semibold text-[var(--color-text-primary)]">
+          {serialNumbers.get(record.profileId) ?? '-'}
         </span>
       ),
     },
@@ -282,7 +281,6 @@ export function BrowserProfilesPanel({
       key: 'profileName',
       title: '实例名称',
       width: 180,
-      sortable: true,
       render: (value, record) => (
         <div className="flex flex-col gap-1">
           <Link className="text-[var(--color-accent)] text-sm font-medium hover:underline" to={`/browser/detail/${record.profileId}`}>
@@ -306,6 +304,16 @@ export function BrowserProfilesPanel({
       },
     },
     {
+      key: 'groupId',
+      title: '分组',
+      width: 120,
+      render: (_, record) => (
+        <span className="whitespace-nowrap text-xs text-[var(--color-text-primary)]" title={getGroupLabel(record)}>
+          {getGroupLabel(record)}
+        </span>
+      ),
+    },
+    {
       key: 'coreId',
       title: '核心',
       width: 110,
@@ -321,33 +329,27 @@ export function BrowserProfilesPanel({
       },
     },
     {
-      key: 'launchCode',
-      title: '快捷打开码',
-      width: 150,
-      render: (value, record) => <LaunchCodeCell profileId={record.profileId} code={value || ''} onRefresh={onRefreshProfiles} />,
-    },
-    {
       key: 'keywords',
       title: '关键字',
       width: 200,
       render: (value) => <KeywordInlineRow keywords={value || []} />,
     },
     {
+      key: 'createdAt',
+      title: '创建时间',
+      width: 168,
+      sortable: true,
+      render: (value) => (
+        <span className="whitespace-nowrap text-xs text-[var(--color-text-secondary)]">{formatTime(value)}</span>
+      ),
+    },
+    {
       key: 'lastStartAt',
-      title: '时间',
+      title: '最后打开时间',
       width: 176,
       sortable: true,
-      render: (_, record) => (
-        <div className="space-y-0.5 text-xs leading-5">
-          <div>
-            <span className="text-[var(--color-text-muted)]">创建 </span>
-            <span className="text-[var(--color-text-secondary)]">{formatTime(record.createdAt)}</span>
-          </div>
-          <div>
-            <span className="text-[var(--color-text-muted)]">打开 </span>
-            <span className="text-[var(--color-text-primary)]">{formatTime(record.lastStartAt)}</span>
-          </div>
-        </div>
+      render: (value) => (
+        <span className="whitespace-nowrap text-xs text-[var(--color-text-primary)]">{formatTime(value)}</span>
       ),
     },
     {
@@ -394,7 +396,7 @@ export function BrowserProfilesPanel({
             columns={columns}
             data={profiles}
             rowKey="profileId"
-            tableMinWidth="1120px"
+            tableMinWidth="1100px"
             onSort={onSortChange}
             sortColumn={sortColumn}
             sortOrder={sortOrder}
@@ -405,7 +407,9 @@ export function BrowserProfilesPanel({
               <BrowserProfileCard
                 key={profile.profileId}
                 profile={profile}
+                serialNumber={serialNumbers.get(profile.profileId) ?? 0}
                 proxy={proxies.find(item => item.proxyId === profile.proxyId)}
+                groupLabel={getGroupLabel(profile)}
                 isSelected={selectedIds.has(profile.profileId)}
                 status={getProfileStatus(profile)}
                 coreLabel={resolveProfileCore(profile)?.coreName || getProfileCoreLabel(profile)}
@@ -413,7 +417,6 @@ export function BrowserProfilesPanel({
                 isStopping={isProfileStopping(profile.profileId)}
                 isBusy={isProfileBusy(profile.profileId)}
                 onToggleSelect={onToggleSelect}
-                onRefreshProfiles={onRefreshProfiles}
                 onStart={onStart}
                 onStop={onStop}
                 onRestart={onRestart}

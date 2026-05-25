@@ -33,6 +33,36 @@ func TestEnsureNewWindowLaunchArgAddsFlagOnce(t *testing.T) {
 	}
 }
 
+func TestBuildBrowserLaunchArgsAddsAcceptLanguageForProfileLanguage(t *testing.T) {
+	t.Parallel()
+
+	profile := &BrowserProfile{
+		ProfileId:       "profile-lang",
+		FingerprintArgs: []string{"--lang=en-US"},
+	}
+
+	got := buildBrowserLaunchArgs(profile, t.TempDir(), 9222, "direct://", nil, nil, nil, nil, true, false)
+	if !containsString(got, "--accept-lang=en-US,en") {
+		t.Fatalf("expected launch args to include accept language, got=%v", got)
+	}
+}
+
+func TestBuildBrowserLaunchArgsSkipsAcceptLanguageForIPBasedLanguage(t *testing.T) {
+	t.Parallel()
+
+	profile := &BrowserProfile{
+		ProfileId:       "profile-lang-ip",
+		FingerprintArgs: []string{"--lang=ip"},
+	}
+
+	got := buildBrowserLaunchArgs(profile, t.TempDir(), 9222, "direct://", nil, nil, nil, nil, true, false)
+	for _, arg := range got {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(arg)), "--accept-lang=") {
+			t.Fatalf("expected no accept language for IP-based language, got=%v", got)
+		}
+	}
+}
+
 func TestShouldPreferVisibleWindowForStartWithParams(t *testing.T) {
 	t.Parallel()
 
@@ -508,6 +538,15 @@ func TestResolveBrowserStartProxyUsesTemporaryProxyWithoutMutatingProfile(t *tes
 	if profile.ProxyId != "stored-proxy" || profile.ProxyConfig != "http://127.0.0.1:18080" {
 		t.Fatalf("fallback temporary proxy should not mutate profile: %+v", profile)
 	}
+}
+
+func containsString(items []string, target string) bool {
+	for _, item := range items {
+		if item == target {
+			return true
+		}
+	}
+	return false
 }
 
 func TestAppendLaunchTargetsUsesConfiguredDefaultStartURLs(t *testing.T) {

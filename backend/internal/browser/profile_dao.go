@@ -29,13 +29,14 @@ func NewSQLiteProfileDAO(db *sql.DB) *SQLiteProfileDAO {
 // List 查询所有实例配置，按创建时间升序
 func (d *SQLiteProfileDAO) List() ([]*Profile, error) {
 	rows, err := d.db.Query(`
-		SELECT profile_id, profile_name, user_data_dir, core_id,
+		SELECT rowid, profile_id, profile_name, user_data_dir, core_id,
 		       fingerprint_args, proxy_id, proxy_config,
 		       COALESCE(proxy_bind_source_id, ''), COALESCE(proxy_bind_source_url, ''),
 		       COALESCE(proxy_bind_name, ''), COALESCE(proxy_bind_updated_at, ''),
 		       launch_args,
-		       tags, keywords, group_id, created_at, updated_at
-		FROM browser_profiles ORDER BY created_at ASC`)
+		       tags, keywords, group_id, created_at, updated_at,
+		       COALESCE(last_start_at, ''), COALESCE(last_stop_at, '')
+		FROM browser_profiles ORDER BY rowid ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("查询实例列表失败: %w", err)
 	}
@@ -55,12 +56,13 @@ func (d *SQLiteProfileDAO) List() ([]*Profile, error) {
 // GetById 根据 profileId 查询单个实例
 func (d *SQLiteProfileDAO) GetById(profileId string) (*Profile, error) {
 	row := d.db.QueryRow(`
-		SELECT profile_id, profile_name, user_data_dir, core_id,
+		SELECT rowid, profile_id, profile_name, user_data_dir, core_id,
 		       fingerprint_args, proxy_id, proxy_config,
 		       COALESCE(proxy_bind_source_id, ''), COALESCE(proxy_bind_source_url, ''),
 		       COALESCE(proxy_bind_name, ''), COALESCE(proxy_bind_updated_at, ''),
 		       launch_args,
-		       tags, keywords, group_id, created_at, updated_at
+		       tags, keywords, group_id, created_at, updated_at,
+		       COALESCE(last_start_at, ''), COALESCE(last_stop_at, '')
 		FROM browser_profiles WHERE profile_id = ?`, profileId)
 	p, err := scanProfile(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -88,8 +90,8 @@ func (d *SQLiteProfileDAO) Upsert(profile *Profile) error {
 		INSERT INTO browser_profiles
 		  (profile_id, profile_name, user_data_dir, core_id, fingerprint_args,
 		   proxy_id, proxy_config, proxy_bind_source_id, proxy_bind_source_url, proxy_bind_name, proxy_bind_updated_at,
-		   launch_args, tags, keywords, group_id, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		   launch_args, tags, keywords, group_id, created_at, updated_at, last_start_at, last_stop_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(profile_id) DO UPDATE SET
 		  profile_name     = excluded.profile_name,
 		  user_data_dir    = excluded.user_data_dir,
@@ -105,12 +107,14 @@ func (d *SQLiteProfileDAO) Upsert(profile *Profile) error {
 		  tags             = excluded.tags,
 		  keywords         = excluded.keywords,
 		  group_id         = excluded.group_id,
-		  updated_at       = excluded.updated_at`,
+		  updated_at       = excluded.updated_at,
+		  last_start_at    = excluded.last_start_at,
+		  last_stop_at     = excluded.last_stop_at`,
 		profile.ProfileId, profile.ProfileName, profile.UserDataDir, profile.CoreId,
 		string(fingerprintArgs), profile.ProxyId, profile.ProxyConfig,
 		profile.ProxyBindSourceID, profile.ProxyBindSourceURL, profile.ProxyBindName, profile.ProxyBindUpdatedAt,
 		string(launchArgs), string(tags), string(keywords), profile.GroupId,
-		profile.CreatedAt, profile.UpdatedAt,
+		profile.CreatedAt, profile.UpdatedAt, profile.LastStartAt, profile.LastStopAt,
 	)
 	if err != nil {
 		return fmt.Errorf("保存实例配置失败: %w", err)
@@ -147,23 +151,25 @@ func (d *SQLiteProfileDAO) ListByGroup(groupId string, includeChildren bool, chi
 			args[i] = id
 		}
 		rows, err = d.db.Query(fmt.Sprintf(`
-			SELECT profile_id, profile_name, user_data_dir, core_id,
+			SELECT rowid, profile_id, profile_name, user_data_dir, core_id,
 			       fingerprint_args, proxy_id, proxy_config,
 			       COALESCE(proxy_bind_source_id, ''), COALESCE(proxy_bind_source_url, ''),
 			       COALESCE(proxy_bind_name, ''), COALESCE(proxy_bind_updated_at, ''),
 			       launch_args,
-			       tags, keywords, group_id, created_at, updated_at
-			FROM browser_profiles WHERE group_id IN (%s) ORDER BY created_at ASC`, inClause), args...)
+			       tags, keywords, group_id, created_at, updated_at,
+			       COALESCE(last_start_at, ''), COALESCE(last_stop_at, '')
+			FROM browser_profiles WHERE group_id IN (%s) ORDER BY rowid ASC`, inClause), args...)
 	} else {
 		// 仅查询指定分组
 		rows, err = d.db.Query(`
-			SELECT profile_id, profile_name, user_data_dir, core_id,
+			SELECT rowid, profile_id, profile_name, user_data_dir, core_id,
 			       fingerprint_args, proxy_id, proxy_config,
 			       COALESCE(proxy_bind_source_id, ''), COALESCE(proxy_bind_source_url, ''),
 			       COALESCE(proxy_bind_name, ''), COALESCE(proxy_bind_updated_at, ''),
 			       launch_args,
-			       tags, keywords, group_id, created_at, updated_at
-			FROM browser_profiles WHERE group_id = ? ORDER BY created_at ASC`, groupId)
+			       tags, keywords, group_id, created_at, updated_at,
+			       COALESCE(last_start_at, ''), COALESCE(last_stop_at, '')
+			FROM browser_profiles WHERE group_id = ? ORDER BY rowid ASC`, groupId)
 	}
 
 	if err != nil {
@@ -215,11 +221,11 @@ func scanProfile(s scanner) (*Profile, error) {
 		p                                                           Profile
 	)
 	err := s.Scan(
-		&p.ProfileId, &p.ProfileName, &p.UserDataDir, &p.CoreId,
+		&p.ID, &p.ProfileId, &p.ProfileName, &p.UserDataDir, &p.CoreId,
 		&fingerprintArgsJSON, &p.ProxyId, &p.ProxyConfig,
 		&p.ProxyBindSourceID, &p.ProxyBindSourceURL, &p.ProxyBindName, &p.ProxyBindUpdatedAt,
 		&launchArgsJSON, &tagsJSON, &keywordsJSON, &p.GroupId,
-		&p.CreatedAt, &p.UpdatedAt,
+		&p.CreatedAt, &p.UpdatedAt, &p.LastStartAt, &p.LastStopAt,
 	)
 	if err != nil {
 		return nil, err

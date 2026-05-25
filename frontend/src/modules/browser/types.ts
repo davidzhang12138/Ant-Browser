@@ -1,4 +1,5 @@
 export interface BrowserProfile {
+  id?: number
   profileId: string
   profileName: string
   userDataDir: string
