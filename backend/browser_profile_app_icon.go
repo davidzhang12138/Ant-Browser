@@ -33,7 +33,7 @@ func (a *App) ensureProfileBrowserApp(profile *BrowserProfile, chromeBinaryPath 
 	if profile == nil || strings.TrimSpace(chromeBinaryPath) == "" {
 		return "", nil
 	}
-	serial := browserStartPageSerial(profile)
+	serial := a.browserProfileSerial(profile)
 	if serial == "" {
 		serial = safeStartPageFileName(profile.ProfileId)
 	}
@@ -41,7 +41,7 @@ func (a *App) ensureProfileBrowserApp(profile *BrowserProfile, chromeBinaryPath 
 	profile.IconColor = colorValue
 
 	displayName := profileBrowserDisplayName(profile)
-	appDir := a.resolveAppPath(filepath.ToSlash(filepath.Join("data", "runtime", "profile-apps", safeProfileAppBundleName(displayName)+".app")))
+	appDir := a.resolveAppPath(filepath.ToSlash(filepath.Join("data", "runtime", "profile-apps", profileBrowserBundleDirName(profile, displayName)+".app")))
 	contentsDir := filepath.Join(appDir, "Contents")
 	macOSDir := filepath.Join(contentsDir, "MacOS")
 	resourcesDir := filepath.Join(contentsDir, "Resources")
@@ -110,9 +110,31 @@ func safeProfileAppBundleName(value string) string {
 	return safe
 }
 
+func profileBrowserBundleDirName(profile *BrowserProfile, displayName string) string {
+	base := safeProfileAppBundleName(displayName)
+	if profile == nil {
+		return base
+	}
+	idPart := safeStartPageFileName(profile.ProfileId)
+	if len(idPart) > 8 {
+		idPart = idPart[:8]
+	}
+	if idPart == "" || idPart == "profile" {
+		return base
+	}
+	if profile.ID > 0 {
+		return fmt.Sprintf("%s-%s-%d", base, idPart, profile.ID)
+	}
+	return fmt.Sprintf("%s-%s", base, idPart)
+}
+
 func profileBrowserInfoPlist(profile *BrowserProfile) string {
 	bundleID := "cn.reelix.antbrowser.profile." + safeStartPageFileName(profile.ProfileId)
+	if profile != nil && profile.ID > 0 {
+		bundleID += "." + fmt.Sprintf("%d", profile.ID)
+	}
 	displayName := profileBrowserDisplayName(profile)
+	bundleVersion := profileBrowserBundleVersion(profile)
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -134,14 +156,21 @@ func profileBrowserInfoPlist(profile *BrowserProfile) string {
   <key>CFBundleShortVersionString</key>
   <string>1.0</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>%s</string>
   <key>LSMinimumSystemVersion</key>
   <string>10.13</string>
   <key>NSHighResolutionCapable</key>
   <true/>
 </dict>
 </plist>
-`, templateEscape(bundleID), templateEscape(displayName), templateEscape(displayName))
+`, templateEscape(bundleID), templateEscape(displayName), templateEscape(displayName), templateEscape(bundleVersion))
+}
+
+func profileBrowserBundleVersion(profile *BrowserProfile) string {
+	if profile == nil || profile.ID <= 0 {
+		return "1"
+	}
+	return fmt.Sprintf("%d", profile.ID)
 }
 
 func templateEscape(value string) string {

@@ -63,6 +63,43 @@ func TestBuildBrowserLaunchArgsSkipsAcceptLanguageForIPBasedLanguage(t *testing.
 	}
 }
 
+func TestBuildBrowserLaunchArgsAddsFingerprintBrandVersionFromUserAgent(t *testing.T) {
+	t.Parallel()
+
+	profile := &BrowserProfile{
+		ProfileId: "profile-ua",
+		FingerprintArgs: []string{
+			"--fingerprint-platform=windows",
+			"--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+		},
+	}
+
+	got := buildBrowserLaunchArgs(profile, t.TempDir(), 9222, "direct://", nil, nil, nil, nil, true, false)
+	if !containsString(got, "--fingerprint-brand-version=138") {
+		t.Fatalf("expected launch args to include fingerprint brand version from UA, got=%v", got)
+	}
+}
+
+func TestBuildBrowserLaunchArgsKeepsExistingFingerprintBrandVersion(t *testing.T) {
+	t.Parallel()
+
+	profile := &BrowserProfile{
+		ProfileId: "profile-ua-existing-brand-version",
+		FingerprintArgs: []string{
+			"--fingerprint-brand-version=136",
+			"--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+		},
+	}
+
+	got := buildBrowserLaunchArgs(profile, t.TempDir(), 9222, "direct://", nil, nil, nil, nil, true, false)
+	if !containsString(got, "--fingerprint-brand-version=136") {
+		t.Fatalf("expected launch args to keep existing fingerprint brand version, got=%v", got)
+	}
+	if containsString(got, "--fingerprint-brand-version=138") {
+		t.Fatalf("expected launch args not to append duplicate fingerprint brand version, got=%v", got)
+	}
+}
+
 func TestShouldPreferVisibleWindowForStartWithParams(t *testing.T) {
 	t.Parallel()
 

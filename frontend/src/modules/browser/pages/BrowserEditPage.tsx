@@ -8,7 +8,7 @@ import { FingerprintPanel } from '../components/FingerprintPanel'
 import { TagInput } from '../components/TagInput'
 import { GroupSelector } from '../components/GroupSelector'
 import { ProxyPickerModal } from '../components/ProxyPickerModal'
-import { applyBrowserMajor, browserMajorFromChromeVersion, createRandomizedFingerprintConfig, deserialize, serialize } from '../utils/fingerprintSerializer'
+import { applyBrowserMajor, applyCoreBrowserMajorToFingerprintArgs, browserMajorFromChromeVersion, createRandomizedFingerprintConfig, deserialize, serialize } from '../utils/fingerprintSerializer'
 import { getBrowserListReturnPath } from '../utils/listReturnPath'
 
 const fallbackLowLaunchArgs = ['--disable-sync', '--no-first-run']
@@ -72,10 +72,8 @@ function resolveCoreChromeVersion(
   return core ? coreChromeVersions[core.coreId] || '' : ''
 }
 
-function applyCoreVersionToFingerprintArgs(args: string[], chromeVersion: string): string[] {
-  const browserMajor = browserMajorFromChromeVersion(chromeVersion)
-  if (!browserMajor) return args
-  return serialize(applyBrowserMajor(deserialize(args), browserMajor))
+function applyCoreVersionToFingerprintArgs(args: string[], chromeVersion: string, options?: { force?: boolean }): string[] {
+  return applyCoreBrowserMajorToFingerprintArgs(args, chromeVersion, options)
 }
 
 export function BrowserEditPage() {
@@ -213,6 +211,7 @@ export function BrowserEditPage() {
       fingerprintArgs: applyCoreVersionToFingerprintArgs(
         prev.fingerprintArgs,
         resolveCoreChromeVersion(coreId, cores, coreChromeVersions),
+        { force: true },
       ),
     }))
   }

@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react'
+import { Check, Monitor } from 'lucide-react'
 import clsx from 'clsx'
 import { useTheme, themeConfigs, ThemeType } from '../theme'
 
@@ -7,6 +7,7 @@ interface ThemeSwitcherProps {
 }
 
 const themePreview: Record<ThemeType, { bg: string; sidebar: string; accent: string }> = {
+  system: { bg: '#f8fafc', sidebar: '#111827', accent: '#3b82f6' },
   dark: { bg: '#0c0c0e', sidebar: '#18181b', accent: '#fafafa' },
   light: { bg: '#f8fafc', sidebar: '#ffffff', accent: '#1e293b' },
   cream: { bg: '#faf7f2', sidebar: '#fffdf8', accent: '#8b7355' },
@@ -15,11 +16,67 @@ const themePreview: Record<ThemeType, { bg: string; sidebar: string; accent: str
 }
 
 export function ThemeSwitcher({ className }: ThemeSwitcherProps) {
-  const { theme, setTheme } = useTheme()
+  const { theme, resolvedTheme, setTheme } = useTheme()
+
+  const renderPreview = (themeId: ThemeType, preview: typeof themePreview[ThemeType]) => {
+    if (themeId === 'system') {
+      return (
+        <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden border border-black/10 bg-white">
+          <div className="absolute inset-0 grid grid-cols-2">
+            <div className="bg-[#f8fafc]">
+              <div className="h-full w-1/3 bg-white">
+                <div className="w-2/3 h-1 mt-2 mx-auto rounded-full bg-[#1e293b]" />
+              </div>
+            </div>
+            <div className="bg-[#0c0c0e]">
+              <div className="h-full w-1/3 bg-[#18181b]">
+                <div className="w-2/3 h-1 mt-2 mx-auto rounded-full bg-[#fafafa]" />
+              </div>
+            </div>
+          </div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-full bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] flex items-center justify-center shadow-sm">
+              <Monitor className="w-4 h-4 text-[var(--color-text-secondary)]" />
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div
+        className="w-full aspect-[4/3] rounded-lg overflow-hidden border border-black/10"
+        style={{ backgroundColor: preview.bg }}
+      >
+        {/* 侧边栏 */}
+        <div
+          className="w-1/4 h-full float-left"
+          style={{ backgroundColor: preview.sidebar }}
+        >
+          <div
+            className="w-2/3 h-1 mt-2 mx-auto rounded-full"
+            style={{ backgroundColor: preview.accent }}
+          />
+          <div className="mt-2 mx-1 space-y-1">
+            <div className="h-0.5 rounded-full bg-black/10" />
+            <div className="h-0.5 rounded-full bg-black/10" />
+          </div>
+        </div>
+        {/* 内容区 */}
+        <div className="p-1">
+          <div className="h-1 w-1/2 rounded-full bg-black/10 mb-1" />
+          <div className="grid grid-cols-2 gap-0.5">
+            <div className="h-2 rounded-sm" style={{ backgroundColor: preview.sidebar }} />
+            <div className="h-2 rounded-sm" style={{ backgroundColor: preview.sidebar }} />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={clsx('space-y-4', className)}>
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         {themeConfigs.map((config) => {
           const isActive = theme === config.id
           const preview = themePreview[config.id]
@@ -37,33 +94,7 @@ export function ThemeSwitcher({ className }: ThemeSwitcherProps) {
               title={config.description}
             >
               {/* 主题预览 - 模拟界面布局 */}
-              <div 
-                className="w-full aspect-[4/3] rounded-lg overflow-hidden border border-black/10"
-                style={{ backgroundColor: preview.bg }}
-              >
-                {/* 侧边栏 */}
-                <div 
-                  className="w-1/4 h-full float-left"
-                  style={{ backgroundColor: preview.sidebar }}
-                >
-                  <div 
-                    className="w-2/3 h-1 mt-2 mx-auto rounded-full"
-                    style={{ backgroundColor: preview.accent }}
-                  />
-                  <div className="mt-2 mx-1 space-y-1">
-                    <div className="h-0.5 rounded-full bg-black/10" />
-                    <div className="h-0.5 rounded-full bg-black/10" />
-                  </div>
-                </div>
-                {/* 内容区 */}
-                <div className="p-1">
-                  <div className="h-1 w-1/2 rounded-full bg-black/10 mb-1" />
-                  <div className="grid grid-cols-2 gap-0.5">
-                    <div className="h-2 rounded-sm" style={{ backgroundColor: preview.sidebar }} />
-                    <div className="h-2 rounded-sm" style={{ backgroundColor: preview.sidebar }} />
-                  </div>
-                </div>
-              </div>
+              {renderPreview(config.id, preview)}
               
               {/* 主题名称 */}
               <span className={clsx(
@@ -87,6 +118,7 @@ export function ThemeSwitcher({ className }: ThemeSwitcherProps) {
       {/* 当前主题描述 */}
       <p className="text-xs text-[var(--color-text-muted)] text-center">
         {themeConfigs.find(c => c.id === theme)?.description}
+        {theme === 'system' ? `，当前为${resolvedTheme === 'dark' ? '深色' : '浅色'}` : ''}
       </p>
     </div>
   )

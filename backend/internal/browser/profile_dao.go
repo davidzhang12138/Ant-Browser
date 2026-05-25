@@ -171,6 +171,9 @@ func (d *SQLiteProfileDAO) Upsert(profile *Profile) error {
 	if err != nil {
 		return fmt.Errorf("保存实例配置失败: %w", err)
 	}
+	if err := d.db.QueryRow(`SELECT rowid FROM browser_profiles WHERE profile_id = ?`, profile.ProfileId).Scan(&profile.ID); err != nil {
+		return fmt.Errorf("读取实例数据库序号失败: %w", err)
+	}
 	return nil
 }
 

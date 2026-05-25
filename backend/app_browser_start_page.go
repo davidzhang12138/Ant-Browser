@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -111,7 +112,7 @@ func (a *App) browserStartPageModel(profile *BrowserProfile, launchedAt time.Tim
 	if startedAt.IsZero() {
 		startedAt = time.Now()
 	}
-	serial := browserStartPageSerial(profile)
+	serial := a.browserProfileSerial(profile)
 	twoFASecret := normalizeTOTPSecret(profile.TwoFASecret)
 	twoFACode := ""
 	twoFAError := ""
@@ -198,6 +199,37 @@ func browserStartPageSerial(profile *BrowserProfile) string {
 		return strconv.FormatInt(profile.ID, 10)
 	}
 	return strings.TrimSpace(profile.ProfileId)
+}
+
+func (a *App) browserProfileSerial(profile *BrowserProfile) string {
+	if profile == nil {
+		return ""
+	}
+	if profile.ID > 0 {
+		return strconv.FormatInt(profile.ID, 10)
+	}
+	if a == nil || a.browserMgr == nil || len(a.browserMgr.Profiles) == 0 {
+		return browserStartPageSerial(profile)
+	}
+
+	profiles := make([]*BrowserProfile, 0, len(a.browserMgr.Profiles))
+	for _, item := range a.browserMgr.Profiles {
+		if item != nil {
+			profiles = append(profiles, item)
+		}
+	}
+	sort.Slice(profiles, func(i, j int) bool {
+		if profiles[i].ID != profiles[j].ID {
+			return profiles[i].ID < profiles[j].ID
+		}
+		return strings.TrimSpace(profiles[i].ProfileId) < strings.TrimSpace(profiles[j].ProfileId)
+	})
+	for index, item := range profiles {
+		if item.ProfileId == profile.ProfileId {
+			return strconv.Itoa(index + 1)
+		}
+	}
+	return browserStartPageSerial(profile)
 }
 
 func (a *App) browserStartPageGroupName(profile *BrowserProfile) string {

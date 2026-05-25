@@ -18,6 +18,7 @@ export interface FingerprintConfig {
 
   // 基础身份
   brand?: string           // --fingerprint-brand=
+  brandVersion?: string    // --fingerprint-brand-version=
   platform?: string        // --fingerprint-platform=
   deviceType?: string      // UA 生成辅助字段，不单独序列化
   osVersion?: string       // --fingerprint-platform-version=，同时用于 UA 生成
@@ -125,6 +126,7 @@ export function withFingerprintDefaults(config: FingerprintConfig): FingerprintC
 export const KEY_MAP: Record<string, keyof FingerprintConfig> = {
   '--fingerprint': 'seed',
   '--fingerprint-brand': 'brand',
+  '--fingerprint-brand-version': 'brandVersion',
   '--fingerprint-platform': 'platform',
   '--fingerprint-platform-version': 'osVersion',
   '--user-agent': 'userAgent',
@@ -163,6 +165,7 @@ export function serialize(config: FingerprintConfig): string[] {
   const args: string[] = []
   if (config.seed) args.push(`--fingerprint=${config.seed}`)
   if (config.brand) args.push(`--fingerprint-brand=${config.brand}`)
+  if (config.brandVersion || config.browserMajor) args.push(`--fingerprint-brand-version=${config.brandVersion || config.browserMajor}`)
   if (config.platform) args.push(`--fingerprint-platform=${config.platform}`)
   if (config.osVersion) args.push(`--fingerprint-platform-version=${config.osVersion}`)
   if (config.userAgent) args.push(`--user-agent=${config.userAgent}`)
@@ -240,7 +243,11 @@ export function deserialize(args: string[]): FingerprintConfig {
       config.platform = config.platform || normalizePlatformValue(uaInfo.platform)
       config.osVersion = config.osVersion || uaInfo.osVersion
       config.browserMajor = uaInfo.browserMajor
+      config.brandVersion = config.brandVersion || uaInfo.browserMajor
       config.brand = config.brand || uaInfo.brand
+    } else if (field === 'brandVersion') {
+      config.brandVersion = val
+      config.browserMajor = config.browserMajor || browserMajorFromChromeVersion(val) || val
     } else if (field === 'platform') {
       config.platform = normalizePlatformValue(val)
     } else {
@@ -255,7 +262,7 @@ export function buildUserAgent(config: Partial<FingerprintConfig>): string {
   const brand = config.brand || 'Chrome'
   const platform = normalizePlatformValue(config.platform || 'windows')
   const deviceType = config.deviceType || 'desktop'
-  const major = config.browserMajor || '139'
+  const major = config.brandVersion || config.browserMajor || '139'
   const osVersion = config.osVersion || defaultOSVersion(platform, deviceType)
 
   if (deviceType === 'mobile') {
@@ -287,7 +294,7 @@ export function isUserAgentCompatible(config: Partial<FingerprintConfig>, userAg
   const platform = normalizePlatformValue(config.platform || uaInfo.platform)
   const deviceType = config.deviceType || uaInfo.deviceType
   const brand = config.brand || uaInfo.brand
-  const browserMajor = config.browserMajor || uaInfo.browserMajor
+  const browserMajor = config.brandVersion || config.browserMajor || uaInfo.browserMajor
   const osVersion = config.osVersion || defaultOSVersion(platform, deviceType)
 
   if (uaInfo.platform !== platform) return false
@@ -303,14 +310,41 @@ export function browserMajorFromChromeVersion(chromeVersion?: string): string {
   return match?.[1] || ''
 }
 
+export function hasUserAgentArg(args: string[]): boolean {
+  return (args || []).some(arg => {
+    const value = String(arg || '').trim().toLowerCase()
+    return value === '--user-agent' || value.startsWith('--user-agent=')
+  })
+}
+
+export function hasBrandVersionArg(args: string[]): boolean {
+  return (args || []).some(arg => {
+    const value = String(arg || '').trim().toLowerCase()
+    return value === '--fingerprint-brand-version' || value.startsWith('--fingerprint-brand-version=')
+  })
+}
+
 export function applyBrowserMajor(config: FingerprintConfig, browserMajor?: string): FingerprintConfig {
   const major = String(browserMajor || '').trim()
   if (!major) {
     return withFingerprintDefaults(config)
   }
-  const next = withFingerprintDefaults({ ...config, browserMajor: major })
+  const next = withFingerprintDefaults({ ...config, browserMajor: major, brandVersion: major })
   next.userAgent = buildUserAgent(next)
   return next
+}
+
+export function applyCoreBrowserMajorToFingerprintArgs(
+  args: string[],
+  chromeVersion: string,
+  options: { force?: boolean } = {},
+): string[] {
+  const browserMajor = browserMajorFromChromeVersion(chromeVersion)
+  if (!browserMajor) return args
+  const config = deserialize(args)
+  if (!options.force && hasBrandVersionArg(args)) return args
+  if (!options.force && hasUserAgentArg(args)) return serialize(config)
+  return serialize(applyBrowserMajor(config, browserMajor))
 }
 
 export function defaultOSVersion(platform?: string, deviceType = 'desktop'): string {

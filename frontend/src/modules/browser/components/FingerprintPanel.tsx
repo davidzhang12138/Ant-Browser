@@ -39,11 +39,16 @@ const DEVICE_TYPE_OPTIONS = [
 ]
 
 const BROWSER_MAJOR_OPTIONS = [
+  { value: '145', label: '145' },
+  { value: '144', label: '144' },
+  { value: '143', label: '143' },
+  { value: '142', label: '142' },
+  { value: '141', label: '141' },
+  { value: '140', label: '140' },
   { value: '139', label: '139' },
   { value: '138', label: '138' },
   { value: '137', label: '137' },
   { value: '136', label: '136' },
-  { value: '135', label: '135' },
 ]
 
 function getBrowserMajorOptions(currentMajor?: string) {

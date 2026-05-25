@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -263,11 +264,43 @@ func buildBrowserLaunchArgs(profile *BrowserProfile, userDataDir string, debugPo
 		args = append(args, fmt.Sprintf("--proxy-server=%s", effectiveProxy))
 	}
 
-	args = append(args, profile.FingerprintArgs...)
+	args = append(args, ensureFingerprintBrandVersionArg(profile.FingerprintArgs)...)
 	args = append(args, sanitizedProfileLaunchArgs...)
 	args = append(args, sanitizedExtraLaunchArgs...)
 	args = ensureAcceptLanguageLaunchArg(args, browser.LocaleFromLaunchArgs(profile.FingerprintArgs, sanitizedProfileLaunchArgs, sanitizedExtraLaunchArgs))
 	return appendLaunchTargets(args, startURLs, defaultStartURLs, skipDefaultStartURLs, restoreLastSession)
+}
+
+var browserMajorUserAgentPattern = regexp.MustCompile(`(?i)(?:Chrome|CriOS|Edg|EdgA|Firefox)/([0-9]{2,3})`)
+
+func ensureFingerprintBrandVersionArg(args []string) []string {
+	if len(args) == 0 {
+		return args
+	}
+	for _, arg := range args {
+		value := strings.TrimSpace(arg)
+		if strings.EqualFold(value, "--fingerprint-brand-version") ||
+			strings.HasPrefix(strings.ToLower(value), "--fingerprint-brand-version=") {
+			return args
+		}
+	}
+
+	for _, arg := range args {
+		value := strings.TrimSpace(arg)
+		if !strings.HasPrefix(strings.ToLower(value), "--user-agent=") {
+			continue
+		}
+		userAgent := strings.TrimSpace(value[len("--user-agent="):])
+		match := browserMajorUserAgentPattern.FindStringSubmatch(userAgent)
+		if len(match) < 2 || strings.TrimSpace(match[1]) == "" {
+			return args
+		}
+		out := make([]string, 0, len(args)+1)
+		out = append(out, args...)
+		out = append(out, "--fingerprint-brand-version="+strings.TrimSpace(match[1]))
+		return out
+	}
+	return args
 }
 
 func ensureAcceptLanguageLaunchArg(args []string, locale string) []string {

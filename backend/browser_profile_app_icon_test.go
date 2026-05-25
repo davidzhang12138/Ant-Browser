@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"ant-chrome/backend/internal/browser"
 	"os"
 	"path/filepath"
 	"strings"
@@ -66,7 +67,44 @@ func TestEnsureProfileBrowserAppUsesInstanceNameForBundlePath(t *testing.T) {
 		t.Fatalf("ensureProfileBrowserApp() error = %v", err)
 	}
 
-	if got := filepath.Base(appPath); got != "tanikajoe90@gmail.com.app" {
+	if got := filepath.Base(appPath); got != "tanikajoe90@gmail.com-54c603ec-376.app" {
 		t.Fatalf("app bundle name = %q, want instance name", got)
+	}
+}
+
+func TestProfileBrowserAppBundleIncludesDatabaseIDForIconRefresh(t *testing.T) {
+	t.Parallel()
+
+	profile := &BrowserProfile{
+		ID:          378,
+		ProfileId:   "8c4e6a51-0e0f-4692-9201-178e46566643",
+		ProfileName: "New Instance",
+	}
+
+	if got := profileBrowserBundleDirName(profile, profileBrowserDisplayName(profile)); got != "New Instance-8c4e6a51-378" {
+		t.Fatalf("profileBrowserBundleDirName() = %q, want name with profile id and database id", got)
+	}
+	if got := profileBrowserBundleVersion(profile); got != "378" {
+		t.Fatalf("profileBrowserBundleVersion() = %q, want database id", got)
+	}
+	plist := profileBrowserInfoPlist(profile)
+	if !strings.Contains(plist, "<string>cn.reelix.antbrowser.profile.8c4e6a51-0e0f-4692-9201-178e46566643.378</string>") {
+		t.Fatalf("profileBrowserInfoPlist() bundle id should include database id for icon cache refresh:\n%s", plist)
+	}
+}
+
+func TestBrowserProfileSerialFallsBackToListOrder(t *testing.T) {
+	t.Parallel()
+
+	app := NewApp(t.TempDir())
+	app.browserMgr = &browser.Manager{
+		Profiles: map[string]*browser.Profile{
+			"b-profile": {ProfileId: "b-profile", ProfileName: "target"},
+			"a-profile": {ProfileId: "a-profile", ProfileName: "first"},
+		},
+	}
+
+	if got := app.browserProfileSerial(app.browserMgr.Profiles["b-profile"]); got != "2" {
+		t.Fatalf("browserProfileSerial() = %q, want fallback list order serial 2", got)
 	}
 }
