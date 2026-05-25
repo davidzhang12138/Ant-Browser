@@ -43,5 +43,6 @@ assert.equal(resolveNearestCoreForBrowserMajor('140', cores, {
   'chrome-139': '139.0.7258.154',
   'chrome-142': '142.0.7444.60',
 }), 'chrome-139')
+assert.equal(resolveNearestCoreForBrowserMajor('141', cores, {}), 'chrome-142')
 
 console.log('core version matcher tests passed')

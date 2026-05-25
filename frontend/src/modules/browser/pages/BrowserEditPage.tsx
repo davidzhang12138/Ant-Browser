@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { FolderOpen, Layers } from 'lucide-react'
 import { Button, Card, ConfirmModal, FormItem, Input, Modal, Select, Textarea, toast } from '../../../shared/components'
@@ -109,7 +109,7 @@ export function BrowserEditPage() {
   const [saving, setSaving] = useState(false)
   const [proxyPickerOpen, setProxyPickerOpen] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
-  const [coreManuallySelected, setCoreManuallySelected] = useState(false)
+  const coreManuallySelectedRef = useRef(false)
   const [leaveConfirm, setLeaveConfirm] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -132,7 +132,7 @@ export function BrowserEditPage() {
       setGroups(groupList)
 
       if (isCreate) {
-        setCoreManuallySelected(false)
+        coreManuallySelectedRef.current = false
         const resolved = resolvePoolProxySelection('', '', proxyList)
         const defaultCoreChromeVersion = resolveCoreChromeVersion('', coreList, nextCoreChromeVersions)
         const defaultBrowserMajor = browserMajorFromChromeVersion(defaultCoreChromeVersion)
@@ -156,7 +156,7 @@ export function BrowserEditPage() {
       const normalizedCoreId = !current.coreId || current.coreId.toLowerCase() === 'default'
         ? ''
         : current.coreId
-      setCoreManuallySelected(normalizedCoreId !== '')
+      coreManuallySelectedRef.current = false
       const currentCoreChromeVersion = resolveCoreChromeVersion(normalizedCoreId, coreList, nextCoreChromeVersions)
       const resolvedProxy = resolvePoolProxySelection(current.proxyId || '', current.proxyConfig || '', proxyList)
       setFormData({
@@ -209,7 +209,7 @@ export function BrowserEditPage() {
 
   const handleCoreChange = (coreId: string) => {
     setIsDirty(true)
-    setCoreManuallySelected(true)
+    coreManuallySelectedRef.current = true
     setFormData(prev => ({
       ...prev,
       coreId,
@@ -226,7 +226,7 @@ export function BrowserEditPage() {
     setFormData(prev => {
       const previousMajor = deserialize(prev.fingerprintArgs).browserMajor || ''
       const nextMajor = deserialize(args).browserMajor || ''
-      if (coreManuallySelected || !nextMajor || nextMajor === previousMajor) {
+      if (coreManuallySelectedRef.current || !nextMajor || nextMajor === previousMajor) {
         return { ...prev, fingerprintArgs: args }
       }
       const nearestCoreId = resolveNearestCoreForBrowserMajor(nextMajor, cores, coreChromeVersions)
@@ -236,6 +236,18 @@ export function BrowserEditPage() {
         fingerprintArgs: args,
       }
     })
+  }
+
+  const handleBrowserMajorChange = (browserMajor: string) => {
+    if (coreManuallySelectedRef.current) {
+      return
+    }
+    const nearestCoreId = resolveNearestCoreForBrowserMajor(browserMajor, cores, coreChromeVersions)
+    if (!nearestCoreId) {
+      return
+    }
+    setIsDirty(true)
+    setFormData(prev => ({ ...prev, coreId: nearestCoreId }))
   }
 
   const handleSave = async () => {
@@ -489,6 +501,7 @@ export function BrowserEditPage() {
         <FingerprintPanel
           value={formData.fingerprintArgs}
           onChange={handleFingerprintArgsChange}
+          onBrowserMajorChange={handleBrowserMajorChange}
         />
       </Card>
 

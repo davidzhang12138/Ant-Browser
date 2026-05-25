@@ -18,6 +18,7 @@ import {
 interface FingerprintPanelProps {
   value: string[]
   onChange: (args: string[]) => void
+  onBrowserMajorChange?: (browserMajor: string) => void
 }
 
 const BRAND_OPTIONS = [
@@ -49,6 +50,8 @@ const BROWSER_MAJOR_OPTIONS = [
   { value: '138', label: '138' },
   { value: '137', label: '137' },
   { value: '136', label: '136' },
+  { value: '135', label: '135' },
+  { value: '132', label: '132' },
 ]
 
 function getBrowserMajorOptions(currentMajor?: string) {
@@ -267,7 +270,7 @@ const PRESET_OPTIONS = [
   ...FINGERPRINT_PRESETS.map(p => ({ value: p.id, label: p.name })),
 ]
 
-export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
+export function FingerprintPanel({ value, onChange, onBrowserMajorChange }: FingerprintPanelProps) {
   const [config, setConfig] = useState<FingerprintConfig>(() => deserialize(value))
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [customRenderer, setCustomRenderer] = useState('')
@@ -415,7 +418,15 @@ export function FingerprintPanel({ value, onChange }: FingerprintPanelProps) {
             />
           </FormItem>
           <FormItem label="浏览器大版本">
-            <Select value={config.browserMajor ?? '139'} onChange={e => updateUA({ browserMajor: e.target.value || '139' })} options={getBrowserMajorOptions(config.browserMajor)} />
+            <Select
+              value={config.browserMajor ?? '139'}
+              onChange={e => {
+                const major = e.target.value || '139'
+                onBrowserMajorChange?.(major)
+                updateUA({ browserMajor: major, brandVersion: major })
+              }}
+              options={getBrowserMajorOptions(config.browserMajor)}
+            />
           </FormItem>
           <FormItem label="语言">
             <Select value={config.lang ?? 'ip'} onChange={e => update({ lang: e.target.value || 'ip' })} options={LANG_OPTIONS} />
