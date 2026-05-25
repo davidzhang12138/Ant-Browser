@@ -1,0 +1,66 @@
+name: Publish Windows Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Optional package version override, for example 1.2.0
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+
+      - name: Add Go bin to PATH
+        shell: pwsh
+        run: |
+          "$(go env GOPATH)\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Build Windows packages
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          $scriptArgs = @("-Arch", "amd64")
+          if (-not [string]::IsNullOrWhiteSpace($env:VERSION)) {
+            $scriptArgs += @("-Version", $env:VERSION)
+          }
+          & .\publish\windows\publish-windows.ps1 @scriptArgs
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ant-browser-windows-amd64
+          path: |
+            publish/output/AntBrowser-*-windows-amd64.zip
+            publish/output/AntBrowser-Setup-*.exe
+          if-no-files-found: error

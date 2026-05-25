@@ -56,9 +56,11 @@ jobs:
         run: |
           set -euo pipefail
           deb_file="$(ls -1 publish/output/*_${{ matrix.arch }}.deb | head -n 1)"
+          tar_file="$(ls -1 publish/output/*-linux-${{ matrix.arch }}.tar.gz | head -n 1)"
           echo "Validating: $deb_file"
           dpkg-deb -I "$deb_file"
           dpkg-deb -c "$deb_file" >/dev/null
+          tar -tzf "$tar_file" | grep -q '^AntBrowser/'
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

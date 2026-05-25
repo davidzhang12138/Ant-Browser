@@ -207,9 +207,10 @@ if [[ ! -f "$APP_BIN" ]]; then
 fi
 
 echo "[4/5] Assembling staging files..."
-APP_STAGE="$STAGING_ROOT/$TARGET/app"
+APP_STAGE_ROOT="$STAGING_ROOT/$TARGET/app"
+APP_STAGE="$APP_STAGE_ROOT/AntBrowser"
 DEB_STAGE="$STAGING_ROOT/$TARGET/deb"
-rm -rf "$APP_STAGE" "$DEB_STAGE"
+rm -rf "$APP_STAGE_ROOT" "$DEB_STAGE"
 mkdir -p "$APP_STAGE/bin" "$APP_STAGE/data" "$DEB_STAGE"
 
 cp "$APP_BIN" "$APP_STAGE/ant-chrome"
@@ -225,7 +226,7 @@ fi
 
 mkdir -p "$OUTPUT_DIR"
 TAR_NAME="AntBrowser-${VERSION}-linux-${ARCH}.tar.gz"
-tar -C "$APP_STAGE" -czf "$OUTPUT_DIR/$TAR_NAME" .
+tar -C "$APP_STAGE_ROOT" -czf "$OUTPUT_DIR/$TAR_NAME" AntBrowser
 
 PKG_ROOT="$DEB_STAGE/${APP_PACKAGE_NAME}_${VERSION}_${ARCH}"
 INSTALL_ROOT="$PKG_ROOT/opt/ant-browser"
@@ -386,7 +387,7 @@ echo "  - $OUTPUT_DIR/$TAR_NAME"
 echo "  - $OUTPUT_DIR/$DEB_NAME"
 
 if [[ "$KEEP_STAGING" -ne 1 ]]; then
-  rm -rf "$APP_STAGE" "$DEB_STAGE"
+  rm -rf "$APP_STAGE_ROOT" "$DEB_STAGE"
 fi
 
 echo "Done."
