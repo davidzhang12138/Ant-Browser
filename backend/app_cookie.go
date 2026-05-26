@@ -49,8 +49,6 @@ type cdpMessage struct {
 // cdpResponse 是 CDP 协议响应结构
 type cdpResponse struct {
 	Id     int            `json:"id"`
-	Method string         `json:"method,omitempty"`
-	Params map[string]any `json:"params,omitempty"`
 	Result map[string]any `json:"result,omitempty"`
 	Error  *struct {
 		Message string `json:"message"`

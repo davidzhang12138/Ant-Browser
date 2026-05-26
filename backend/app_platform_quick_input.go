@@ -3,13 +3,11 @@ package backend
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/url"
 	"strings"
 	"time"
 
 	"ant-chrome/backend/internal/logger"
-	"github.com/gorilla/websocket"
 )
 
 type platformQuickInputPayload struct {
@@ -215,15 +213,15 @@ func (a *App) injectPlatformQuickInputWithRetry(profile *BrowserProfile, debugPo
 		return
 	}
 
-	watching := map[string]struct{}{}
+	injected := map[string]string{}
 	for {
 		if !a.isProfileRunningOnDebugPort(profile.ProfileId, debugPort) {
 			return
 		}
 
-		targets, err := fetchBrowserDebugTargets(debugPort)
+		_, err := injectPlatformQuickInput(debugPort, profile, script, injected)
 		if err != nil {
-			log.Warn("平台快捷输入目标扫描失败",
+			log.Warn("平台快捷输入注入失败",
 				logger.F("profile_id", profile.ProfileId),
 				logger.F("platform", profile.Platform),
 				logger.F("debug_port", debugPort),
@@ -232,25 +230,8 @@ func (a *App) injectPlatformQuickInputWithRetry(profile *BrowserProfile, debugPo
 			time.Sleep(2 * time.Second)
 			continue
 		}
-
-		for _, target := range targets {
-			if !platformQuickInputCanWatchTarget(target) {
-				continue
-			}
-			targetKey := platformQuickInputTargetKey(target)
-			if _, ok := watching[targetKey]; ok {
-				continue
-			}
-			watching[targetKey] = struct{}{}
-			go a.watchPlatformQuickInputTarget(profile, debugPort, target, script)
-		}
 		time.Sleep(500 * time.Millisecond)
 	}
-}
-
-func platformQuickInputCanWatchTarget(target cdpTarget) bool {
-	return strings.EqualFold(strings.TrimSpace(target.Type), "page") &&
-		strings.TrimSpace(target.WebSocketDebuggerUrl) != ""
 }
 
 func platformQuickInputTargetKey(target cdpTarget) string {
@@ -260,94 +241,38 @@ func platformQuickInputTargetKey(target cdpTarget) string {
 	return strings.TrimSpace(target.WebSocketDebuggerUrl)
 }
 
-func (a *App) watchPlatformQuickInputTarget(profile *BrowserProfile, debugPort int, target cdpTarget, script string) {
-	log := logger.New("Browser")
-	wsURL := strings.TrimSpace(target.WebSocketDebuggerUrl)
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+func injectPlatformQuickInput(debugPort int, profile *BrowserProfile, script string, injected map[string]string) (int, error) {
+	targets, err := fetchBrowserDebugTargets(debugPort)
 	if err != nil {
-		log.Warn("平台快捷输入监听连接失败",
-			logger.F("profile_id", profile.ProfileId),
-			logger.F("debug_port", debugPort),
-			logger.F("error", err.Error()),
-		)
-		return
+		return 0, err
 	}
-	defer conn.Close()
 
-	nextID := 1
-	if err := platformQuickInputSendCDP(conn, &nextID, "Page.enable", nil, 2*time.Second); err != nil {
-		return
-	}
-	if err := platformQuickInputSendCDP(conn, &nextID, "Page.addScriptToEvaluateOnNewDocument", map[string]any{"source": script}, 2*time.Second); err != nil {
-		return
-	}
-	_ = platformQuickInputEvaluateIfAllowed(conn, &nextID, profile, target.URL, script)
-
-	for {
-		if !a.isProfileRunningOnDebugPort(profile.ProfileId, debugPort) {
-			return
-		}
-		_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
-		var msg cdpResponse
-		if err := conn.ReadJSON(&msg); err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				continue
-			}
-			return
-		}
-		if targetURL := platformQuickInputEventURL(msg); targetURL != "" {
-			_ = platformQuickInputEvaluateIfAllowed(conn, &nextID, profile, targetURL, script)
-		}
-	}
-}
-
-func platformQuickInputSendCDP(conn *websocket.Conn, nextID *int, method string, params map[string]any, timeout time.Duration) error {
-	if timeout <= 0 {
-		timeout = 2 * time.Second
-	}
-	id := *nextID
-	*nextID = id + 1
-	if err := conn.WriteJSON(cdpMessage{Id: id, Method: method, Params: params}); err != nil {
-		return err
-	}
-	deadline := time.Now().Add(timeout)
-	for {
-		_ = conn.SetReadDeadline(deadline)
-		var msg cdpResponse
-		if err := conn.ReadJSON(&msg); err != nil {
-			return err
-		}
-		if msg.Id != id {
+	count := 0
+	for _, target := range targets {
+		if !strings.EqualFold(strings.TrimSpace(target.Type), "page") || strings.TrimSpace(target.WebSocketDebuggerUrl) == "" {
 			continue
 		}
-		if msg.Error != nil {
-			return fmt.Errorf("CDP 错误: %s", msg.Error.Message)
+		if !platformQuickInputMatchesTargetURL(profile, target.URL) {
+			continue
 		}
-		return nil
+		targetKey := platformQuickInputTargetKey(target)
+		if injected[targetKey] == target.URL {
+			continue
+		}
+		if err := cdpCallWebSocket(target.WebSocketDebuggerUrl, "Page.addScriptToEvaluateOnNewDocument", map[string]any{"source": script}, 2*time.Second); err != nil {
+			return count, err
+		}
+		if err := cdpCallWebSocket(target.WebSocketDebuggerUrl, "Runtime.evaluate", map[string]any{
+			"expression":            script,
+			"awaitPromise":          false,
+			"includeCommandLineAPI": false,
+		}, 2*time.Second); err != nil {
+			return count, err
+		}
+		injected[targetKey] = target.URL
+		count++
 	}
-}
-
-func platformQuickInputEvaluateIfAllowed(conn *websocket.Conn, nextID *int, profile *BrowserProfile, targetURL string, script string) error {
-	if !platformQuickInputMatchesTargetURL(profile, targetURL) {
-		return nil
-	}
-	return platformQuickInputSendCDP(conn, nextID, "Runtime.evaluate", map[string]any{
-		"expression":            script,
-		"awaitPromise":          false,
-		"includeCommandLineAPI": false,
-	}, 2*time.Second)
-}
-
-func platformQuickInputEventURL(msg cdpResponse) string {
-	switch msg.Method {
-	case "Page.frameNavigated":
-		frame, _ := msg.Params["frame"].(map[string]any)
-		return strings.TrimSpace(fmt.Sprint(frame["url"]))
-	case "Page.navigatedWithinDocument":
-		return strings.TrimSpace(fmt.Sprint(msg.Params["url"]))
-	default:
-		return ""
-	}
+	return count, nil
 }
 
 func platformQuickInputMatchesTargetURL(profile *BrowserProfile, targetURL string) bool {
