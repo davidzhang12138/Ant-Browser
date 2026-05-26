@@ -20,7 +20,7 @@ func isBrowserBlankNewTabURL(rawURL string) bool {
 	value := strings.TrimSpace(strings.ToLower(rawURL))
 	value = strings.TrimRight(value, "/")
 	switch value {
-	case "", "about:blank", "chrome://newtab", "chrome://new-tab-page", "chrome://new-tab-page-third-party":
+	case "chrome://newtab", "chrome://new-tab-page", "chrome://new-tab-page-third-party":
 		return true
 	default:
 		return false

@@ -14,8 +14,6 @@ func TestIsBrowserBlankNewTabURL(t *testing.T) {
 	t.Parallel()
 
 	for _, value := range []string{
-		"",
-		"about:blank",
 		"chrome://newtab/",
 		"chrome://new-tab-page/",
 		"chrome://new-tab-page-third-party/",
@@ -26,6 +24,8 @@ func TestIsBrowserBlankNewTabURL(t *testing.T) {
 	}
 
 	for _, value := range []string{
+		"",
+		"about:blank",
 		"https://accounts.google.com/",
 		"chrome://password-manager/passwords",
 		"http://127.0.0.1:19876/start-pages/42.html",
@@ -58,10 +58,10 @@ func TestBrowserNewTabRedirectURLWritesStartPageWithoutExtension(t *testing.T) {
 	if err != nil {
 		t.Fatalf("redirect URL invalid: %v", err)
 	}
-	if parsed.Scheme != "http" || parsed.Host != "127.0.0.1:19876" || parsed.Path != "/start-pages/42.html" {
+	if parsed.Scheme != "http" || parsed.Host != "127.0.0.1:19876" || parsed.Path != "/start-pages/profile-42.html" {
 		t.Fatalf("redirect URL = %q, want launch server URL", redirectURL)
 	}
-	content, err := os.ReadFile(app.resolveAppPath("data/runtime/start-pages/42.html"))
+	content, err := os.ReadFile(app.resolveAppPath("data/runtime/start-pages/profile-42.html"))
 	if err != nil {
 		t.Fatalf("start page should be readable: %v", err)
 	}
