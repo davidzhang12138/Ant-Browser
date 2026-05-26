@@ -66,6 +66,8 @@ func TestPlatformQuickInputMatchesPlatformTargetURL(t *testing.T) {
 	for _, targetURL := range []string{
 		"https://accounts.google.com/v3/signin/identifier",
 		"https://www.accounts.google.com/signin",
+		"https://oauth.google.com/signin/oauth/identifier",
+		"https://myaccount.google.com/security",
 	} {
 		if !platformQuickInputMatchesTargetURL(profile, targetURL) {
 			t.Fatalf("platformQuickInputMatchesTargetURL(%q) = false, want true", targetURL)
@@ -76,6 +78,9 @@ func TestPlatformQuickInputMatchesPlatformTargetURL(t *testing.T) {
 		"chrome://password-manager/passwords",
 		"http://127.0.0.1:19876/start-pages/376.html",
 		"https://example.com/",
+		"https://google.example.com/",
+		"https://evil-google.com/",
+		"https://mail.google.com/",
 	} {
 		if platformQuickInputMatchesTargetURL(profile, targetURL) {
 			t.Fatalf("platformQuickInputMatchesTargetURL(%q) = true, want false", targetURL)

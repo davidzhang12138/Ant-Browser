@@ -276,5 +276,37 @@ func platformQuickInputMatchesTargetURL(profile *BrowserProfile, targetURL strin
 	}
 	platformHost := strings.TrimPrefix(strings.ToLower(platformParsed.Hostname()), "www.")
 	targetHost := strings.TrimPrefix(strings.ToLower(targetParsed.Hostname()), "www.")
-	return targetHost == platformHost || strings.HasSuffix(targetHost, "."+platformHost)
+	if targetHost == platformHost || strings.HasSuffix(targetHost, "."+platformHost) {
+		return true
+	}
+	return platformQuickInputMatchesProviderHost(profile, platformHost, targetHost)
+}
+
+func platformQuickInputMatchesProviderHost(profile *BrowserProfile, platformHost string, targetHost string) bool {
+	if !platformQuickInputIsGoogleProfile(profile, platformHost) {
+		return false
+	}
+	for _, host := range []string{
+		"accounts.google.com",
+		"oauth.google.com",
+		"myaccount.google.com",
+	} {
+		if targetHost == host || strings.HasSuffix(targetHost, "."+host) {
+			return true
+		}
+	}
+	return false
+}
+
+func platformQuickInputIsGoogleProfile(profile *BrowserProfile, platformHost string) bool {
+	if profile == nil {
+		return false
+	}
+	platform := strings.ToLower(strings.TrimSpace(profile.Platform))
+	if platform == "google" {
+		return true
+	}
+	return platformHost == "accounts.google.com" ||
+		platformHost == "oauth.google.com" ||
+		platformHost == "myaccount.google.com"
 }
