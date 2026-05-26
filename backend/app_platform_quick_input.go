@@ -3,20 +3,23 @@ package backend
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 	"time"
 
 	"ant-chrome/backend/internal/logger"
+	"github.com/gorilla/websocket"
 )
 
 type platformQuickInputPayload struct {
-	PlatformName string `json:"platformName"`
-	ProfileName  string `json:"profileName"`
-	Username     string `json:"username"`
-	Password     string `json:"password"`
-	TwoFASecret  string `json:"twoFaSecret"`
-	TwoFACode    string `json:"twoFaCode"`
+	PlatformName string   `json:"platformName"`
+	ProfileName  string   `json:"profileName"`
+	Username     string   `json:"username"`
+	Password     string   `json:"password"`
+	TwoFASecret  string   `json:"twoFaSecret"`
+	TwoFACode    string   `json:"twoFaCode"`
+	AllowedHosts []string `json:"allowedHosts"`
 }
 
 func shouldInjectPlatformQuickInput(profile *BrowserProfile) bool {
@@ -46,6 +49,7 @@ func renderPlatformQuickInputScript(profile *BrowserProfile) (string, error) {
 		Password:     strings.TrimSpace(profile.Password),
 		TwoFASecret:  twoFASecret,
 		TwoFACode:    twoFACode,
+		AllowedHosts: platformQuickInputAllowedHosts(profile),
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
@@ -56,6 +60,17 @@ func renderPlatformQuickInputScript(profile *BrowserProfile) (string, error) {
   const data = ` + string(data) + `;
   const rootId = 'ant-platform-quick-input-root';
   if (window.top !== window || document.getElementById(rootId)) return;
+  function normalizedHost(host){
+    return String(host || '').trim().toLowerCase().replace(/^www\./, '');
+  }
+  function hostAllowed(host){
+    const value = normalizedHost(host);
+    return (data.allowedHosts || []).some(function(item){
+      const allowed = normalizedHost(item);
+      return allowed && (value === allowed || value.endsWith('.' + allowed));
+    });
+  }
+  if (!hostAllowed(location.hostname)) return;
   function isEditable(el){
     if (!el) return false;
     const tag = (el.tagName || '').toLowerCase();
@@ -190,72 +205,149 @@ func (a *App) injectPlatformQuickInputAsync(profile *BrowserProfile, debugPort i
 
 func (a *App) injectPlatformQuickInputWithRetry(profile *BrowserProfile, debugPort int) {
 	log := logger.New("Browser")
-	deadline := time.Now().Add(30 * time.Second)
-	injected := map[string]string{}
+	script, err := renderPlatformQuickInputScript(profile)
+	if err != nil {
+		log.Warn("平台快捷输入脚本生成失败",
+			logger.F("profile_id", profile.ProfileId),
+			logger.F("platform", profile.Platform),
+			logger.F("error", err.Error()),
+		)
+		return
+	}
+
+	watching := map[string]struct{}{}
 	for {
 		if !a.isProfileRunningOnDebugPort(profile.ProfileId, debugPort) {
 			return
 		}
 
-		count, err := injectPlatformQuickInput(debugPort, profile, injected)
-		if err == nil && count > 0 {
-			if time.Now().After(deadline) {
-				return
-			}
-		} else if err != nil && time.Now().After(deadline) {
-			log.Warn("平台快捷输入注入失败",
+		targets, err := fetchBrowserDebugTargets(debugPort)
+		if err != nil {
+			log.Warn("平台快捷输入目标扫描失败",
 				logger.F("profile_id", profile.ProfileId),
 				logger.F("platform", profile.Platform),
 				logger.F("debug_port", debugPort),
 				logger.F("error", err.Error()),
 			)
-			return
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		for _, target := range targets {
+			if !platformQuickInputCanWatchTarget(target) {
+				continue
+			}
+			targetKey := platformQuickInputTargetKey(target)
+			if _, ok := watching[targetKey]; ok {
+				continue
+			}
+			watching[targetKey] = struct{}{}
+			go a.watchPlatformQuickInputTarget(profile, debugPort, target, script)
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
 }
 
-func injectPlatformQuickInput(debugPort int, profile *BrowserProfile, injected map[string]string) (int, error) {
-	script, err := renderPlatformQuickInputScript(profile)
-	if err != nil {
-		return 0, err
-	}
+func platformQuickInputCanWatchTarget(target cdpTarget) bool {
+	return strings.EqualFold(strings.TrimSpace(target.Type), "page") &&
+		strings.TrimSpace(target.WebSocketDebuggerUrl) != ""
+}
 
-	targets, err := fetchBrowserDebugTargets(debugPort)
-	if err != nil {
-		return 0, err
+func platformQuickInputTargetKey(target cdpTarget) string {
+	if value := strings.TrimSpace(target.ID); value != "" {
+		return value
 	}
+	return strings.TrimSpace(target.WebSocketDebuggerUrl)
+}
 
-	count := 0
-	for _, target := range targets {
-		if !strings.EqualFold(strings.TrimSpace(target.Type), "page") || strings.TrimSpace(target.WebSocketDebuggerUrl) == "" {
-			continue
-		}
-		if !platformQuickInputMatchesTargetURL(profile, target.URL) {
-			continue
-		}
-		targetKey := strings.TrimSpace(target.ID)
-		if targetKey == "" {
-			targetKey = strings.TrimSpace(target.WebSocketDebuggerUrl)
-		}
-		injectedURL := injected[targetKey]
-		if injectedURL == target.URL {
-			continue
-		}
-		if err := cdpCallWebSocket(target.WebSocketDebuggerUrl, "Page.addScriptToEvaluateOnNewDocument", map[string]any{"source": script}, 2*time.Second); err != nil {
-			return count, err
-		}
-		if err := cdpCallWebSocket(target.WebSocketDebuggerUrl, "Runtime.evaluate", map[string]any{
-			"expression":            script,
-			"awaitPromise":          false,
-			"includeCommandLineAPI": false,
-		}, 2*time.Second); err != nil {
-			return count, err
-		}
-		injected[targetKey] = target.URL
-		count++
+func (a *App) watchPlatformQuickInputTarget(profile *BrowserProfile, debugPort int, target cdpTarget, script string) {
+	log := logger.New("Browser")
+	wsURL := strings.TrimSpace(target.WebSocketDebuggerUrl)
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		log.Warn("平台快捷输入监听连接失败",
+			logger.F("profile_id", profile.ProfileId),
+			logger.F("debug_port", debugPort),
+			logger.F("error", err.Error()),
+		)
+		return
 	}
-	return count, nil
+	defer conn.Close()
+
+	nextID := 1
+	if err := platformQuickInputSendCDP(conn, &nextID, "Page.enable", nil, 2*time.Second); err != nil {
+		return
+	}
+	if err := platformQuickInputSendCDP(conn, &nextID, "Page.addScriptToEvaluateOnNewDocument", map[string]any{"source": script}, 2*time.Second); err != nil {
+		return
+	}
+	_ = platformQuickInputEvaluateIfAllowed(conn, &nextID, profile, target.URL, script)
+
+	for {
+		if !a.isProfileRunningOnDebugPort(profile.ProfileId, debugPort) {
+			return
+		}
+		_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		var msg cdpResponse
+		if err := conn.ReadJSON(&msg); err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				continue
+			}
+			return
+		}
+		if targetURL := platformQuickInputEventURL(msg); targetURL != "" {
+			_ = platformQuickInputEvaluateIfAllowed(conn, &nextID, profile, targetURL, script)
+		}
+	}
+}
+
+func platformQuickInputSendCDP(conn *websocket.Conn, nextID *int, method string, params map[string]any, timeout time.Duration) error {
+	if timeout <= 0 {
+		timeout = 2 * time.Second
+	}
+	id := *nextID
+	*nextID = id + 1
+	if err := conn.WriteJSON(cdpMessage{Id: id, Method: method, Params: params}); err != nil {
+		return err
+	}
+	deadline := time.Now().Add(timeout)
+	for {
+		_ = conn.SetReadDeadline(deadline)
+		var msg cdpResponse
+		if err := conn.ReadJSON(&msg); err != nil {
+			return err
+		}
+		if msg.Id != id {
+			continue
+		}
+		if msg.Error != nil {
+			return fmt.Errorf("CDP 错误: %s", msg.Error.Message)
+		}
+		return nil
+	}
+}
+
+func platformQuickInputEvaluateIfAllowed(conn *websocket.Conn, nextID *int, profile *BrowserProfile, targetURL string, script string) error {
+	if !platformQuickInputMatchesTargetURL(profile, targetURL) {
+		return nil
+	}
+	return platformQuickInputSendCDP(conn, nextID, "Runtime.evaluate", map[string]any{
+		"expression":            script,
+		"awaitPromise":          false,
+		"includeCommandLineAPI": false,
+	}, 2*time.Second)
+}
+
+func platformQuickInputEventURL(msg cdpResponse) string {
+	switch msg.Method {
+	case "Page.frameNavigated":
+		frame, _ := msg.Params["frame"].(map[string]any)
+		return strings.TrimSpace(fmt.Sprint(frame["url"]))
+	case "Page.navigatedWithinDocument":
+		return strings.TrimSpace(fmt.Sprint(msg.Params["url"]))
+	default:
+		return ""
+	}
 }
 
 func platformQuickInputMatchesTargetURL(profile *BrowserProfile, targetURL string) bool {
@@ -280,6 +372,36 @@ func platformQuickInputMatchesTargetURL(profile *BrowserProfile, targetURL strin
 		return true
 	}
 	return platformQuickInputMatchesProviderHost(profile, platformHost, targetHost)
+}
+
+func platformQuickInputAllowedHosts(profile *BrowserProfile) []string {
+	platformURL := browserProfilePlatformURL(profile)
+	if platformURL == "" {
+		return nil
+	}
+	parsed, err := url.Parse(platformURL)
+	if err != nil || parsed.Hostname() == "" {
+		return nil
+	}
+	platformHost := strings.TrimPrefix(strings.ToLower(parsed.Hostname()), "www.")
+	hosts := []string{platformHost}
+	if platformQuickInputIsGoogleProfile(profile, platformHost) {
+		hosts = append(hosts, "accounts.google.com", "oauth.google.com", "myaccount.google.com")
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(hosts))
+	for _, host := range hosts {
+		host = strings.TrimSpace(strings.ToLower(host))
+		if host == "" {
+			continue
+		}
+		if _, ok := seen[host]; ok {
+			continue
+		}
+		seen[host] = struct{}{}
+		out = append(out, host)
+	}
+	return out
 }
 
 func platformQuickInputMatchesProviderHost(profile *BrowserProfile, platformHost string, targetHost string) bool {

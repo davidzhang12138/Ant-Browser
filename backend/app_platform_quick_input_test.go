@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -48,10 +49,52 @@ func TestPlatformQuickInputScriptIncludesCredentialActions(t *testing.T) {
 		`fillCredential`,
 		`one-time-code`,
 		`input[type="password"]`,
+		`"allowedHosts":["accounts.google.com","oauth.google.com","myaccount.google.com"]`,
+		`hostAllowed(location.hostname)`,
 	} {
 		if !strings.Contains(script, want) {
 			t.Fatalf("quick input script missing %q\n%s", want, script)
 		}
+	}
+}
+
+func TestPlatformQuickInputEventURL(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{
+			name: "frame navigated",
+			raw:  `{"method":"Page.frameNavigated","params":{"frame":{"url":"https://oauth.google.com/signin/oauth/identifier"}}}`,
+			want: "https://oauth.google.com/signin/oauth/identifier",
+		},
+		{
+			name: "same document navigation",
+			raw:  `{"method":"Page.navigatedWithinDocument","params":{"url":"https://accounts.google.com/v3/signin/challenge"}}`,
+			want: "https://accounts.google.com/v3/signin/challenge",
+		},
+		{
+			name: "unrelated event",
+			raw:  `{"method":"Network.loadingFinished","params":{"requestId":"1"}}`,
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var msg cdpResponse
+			if err := json.Unmarshal([]byte(tt.raw), &msg); err != nil {
+				t.Fatalf("unmarshal CDP event: %v", err)
+			}
+			if got := platformQuickInputEventURL(msg); got != tt.want {
+				t.Fatalf("platformQuickInputEventURL() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
