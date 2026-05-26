@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -139,14 +141,31 @@ func countBookmarkURLInNodes(nodes []interface{}, url string) int {
 		if !ok {
 			continue
 		}
-		if node["type"] == "url" && node["url"] == url {
-			count++
+		if node["type"] == "url" {
+			if rawURL, ok := node["url"].(string); ok && bookmarkTargetURLForTest(rawURL) == url {
+				count++
+			}
 		}
 		if children, ok := node["children"].([]interface{}); ok {
 			count += countBookmarkURLInNodes(children, url)
 		}
 	}
 	return count
+}
+
+func bookmarkTargetURLForTest(rawURL string) string {
+	const prefix = "javascript:(function(){window.open("
+	const suffix = ",'_blank','noopener,noreferrer');})();"
+	value := strings.TrimSpace(rawURL)
+	if !strings.HasPrefix(value, prefix) || !strings.HasSuffix(value, suffix) {
+		return value
+	}
+	quoted := strings.TrimSuffix(strings.TrimPrefix(value, prefix), suffix)
+	target, err := strconv.Unquote(quoted)
+	if err != nil {
+		return value
+	}
+	return strings.TrimSpace(target)
 }
 
 func findBookmarkItemByURL(items []config.BrowserBookmark, url string) (config.BrowserBookmark, bool) {

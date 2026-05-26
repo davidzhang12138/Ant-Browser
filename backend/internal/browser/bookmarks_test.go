@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -50,23 +51,129 @@ func TestEnsureDefaultBookmarksOnlyAppendsMissingItems(t *testing.T) {
 	}
 
 	updated := readBookmarkRoot(t, profileDir)
-	if got := countBookmarkURL(updated, "https://user.example/"); got != 1 {
-		t.Fatalf("用户自己的书签不应被改动: count=%d", got)
+	if got := countBookmarkTargetURL(updated, "https://user.example/"); got != 1 {
+		t.Fatalf("用户自己的书签目标地址不应被改动: count=%d", got)
 	}
-	if got := countBookmarkURL(updated, "https://existing.example/"); got != 1 {
+	if got := countBookmarkTargetURL(updated, "https://existing.example/"); got != 1 {
 		t.Fatalf("已存在 URL 不应跨文件夹重复添加: count=%d", got)
 	}
-	if got := countBookmarkURL(updated, "https://new.example/"); got != 1 {
+	if got := countBookmarkTargetURL(updated, "https://new.example/"); got != 1 {
 		t.Fatalf("新增默认书签应追加一次: count=%d", got)
 	}
 	if got := countBookmarkURL(updated, "https://ignored-name.example/"); got != 0 {
 		t.Fatalf("空名称书签不应写入: count=%d", got)
 	}
-	if !bookmarkBarHasURL(updated, "https://user.example/") {
+	if !bookmarkBarHasTargetURL(updated, "https://user.example/") {
 		t.Fatalf("用户自己的书签应保留在书签栏")
 	}
-	if !bookmarkBarHasURL(updated, "https://new.example/") {
+	if !bookmarkBarHasTargetURL(updated, "https://new.example/") {
 		t.Fatalf("新增默认书签应追加到书签栏")
+	}
+}
+
+func TestEnsureDefaultBookmarksWritesNewTabBookmarklets(t *testing.T) {
+	t.Parallel()
+
+	userDataDir := t.TempDir()
+
+	err := EnsureDefaultBookmarks(userDataDir, []config.BrowserBookmark{
+		{Name: "新标签页打开", URL: "https://newtab.example/path?q=1"},
+	})
+	if err != nil {
+		t.Fatalf("EnsureDefaultBookmarks returned error: %v", err)
+	}
+
+	root := readBookmarkRoot(t, filepath.Join(userDataDir, "Default"))
+	rawURL := firstBookmarkRawURL(root, "新标签页打开")
+	if rawURL == "https://newtab.example/path?q=1" {
+		t.Fatalf("default bookmark should not overwrite the current tab with raw URL")
+	}
+	if !strings.HasPrefix(rawURL, "javascript:") {
+		t.Fatalf("default bookmark should be a new-tab bookmarklet, got %q", rawURL)
+	}
+	if !strings.Contains(rawURL, "window.open") || !strings.Contains(rawURL, "https://newtab.example/path?q=1") || !strings.Contains(rawURL, "_blank") {
+		t.Fatalf("bookmarklet should open the configured URL in a new tab, got %q", rawURL)
+	}
+}
+
+func TestEnsureDefaultBookmarksMigratesExistingRawDefaultBookmarkToNewTab(t *testing.T) {
+	t.Parallel()
+
+	userDataDir := t.TempDir()
+	profileDir := filepath.Join(userDataDir, "Default")
+	if err := os.MkdirAll(profileDir, 0o755); err != nil {
+		t.Fatalf("create profile dir: %v", err)
+	}
+
+	root := newEmptyBookmarkRoot("0")
+	roots := root["roots"].(map[string]interface{})
+	bar := roots["bookmark_bar"].(map[string]interface{})
+	bar["children"] = []interface{}{
+		map[string]interface{}{
+			"id":   "4",
+			"name": "已有默认书签",
+			"type": "url",
+			"url":  "https://existing.example/",
+		},
+	}
+	writeBookmarkRoot(t, profileDir, root)
+
+	err := EnsureDefaultBookmarks(userDataDir, []config.BrowserBookmark{
+		{Name: "已有默认书签", URL: "https://existing.example/"},
+	})
+	if err != nil {
+		t.Fatalf("EnsureDefaultBookmarks returned error: %v", err)
+	}
+
+	updated := readBookmarkRoot(t, profileDir)
+	if got := countBookmarkURL(updated, "https://existing.example/"); got != 0 {
+		t.Fatalf("raw default bookmark should be migrated away from current-tab opening, count=%d", got)
+	}
+	rawURL := firstBookmarkRawURL(updated, "已有默认书签")
+	if !strings.HasPrefix(rawURL, "javascript:") || !strings.Contains(rawURL, "window.open") {
+		t.Fatalf("existing default bookmark should open in a new tab, got %q", rawURL)
+	}
+}
+
+func TestEnsureDefaultBookmarksMigratesExistingUserBookmarksToNewTab(t *testing.T) {
+	t.Parallel()
+
+	userDataDir := t.TempDir()
+	profileDir := filepath.Join(userDataDir, "Default")
+	if err := os.MkdirAll(profileDir, 0o755); err != nil {
+		t.Fatalf("create profile dir: %v", err)
+	}
+
+	root := newEmptyBookmarkRoot("0")
+	roots := root["roots"].(map[string]interface{})
+	bar := roots["bookmark_bar"].(map[string]interface{})
+	bar["children"] = []interface{}{
+		map[string]interface{}{
+			"id":   "4",
+			"name": "用户自己的书签",
+			"type": "url",
+			"url":  "https://user.example/",
+		},
+	}
+	writeBookmarkRoot(t, profileDir, root)
+
+	err := EnsureDefaultBookmarks(userDataDir, []config.BrowserBookmark{
+		{Name: "默认书签", URL: "https://default.example/"},
+	})
+	if err != nil {
+		t.Fatalf("EnsureDefaultBookmarks returned error: %v", err)
+	}
+
+	updated := readBookmarkRoot(t, profileDir)
+	rawURL := firstBookmarkRawURL(updated, "用户自己的书签")
+	if rawURL == "https://user.example/" {
+		t.Fatalf("existing user bookmark should not keep current-tab raw URL")
+	}
+	if !strings.HasPrefix(rawURL, "javascript:") || !strings.Contains(rawURL, "window.open") {
+		t.Fatalf("existing user bookmark should open in a new tab, got %q", rawURL)
+	}
+	if got := countBookmarkTargetURL(updated, "https://user.example/"); got != 1 {
+		t.Fatalf("existing user bookmark target should remain once, count=%d", got)
 	}
 }
 
@@ -88,7 +195,7 @@ func TestEnsureDefaultBookmarksDoesNotRewriteWhenNothingMissing(t *testing.T) {
 			"id":   "4",
 			"name": "已有默认书签",
 			"type": "url",
-			"url":  "https://existing.example/",
+			"url":  bookmarkNewTabURL("https://existing.example/"),
 		},
 	}
 	writeBookmarkRoot(t, profileDir, root)
@@ -154,6 +261,24 @@ func countBookmarkURL(root map[string]interface{}, url string) int {
 	return count
 }
 
+func countBookmarkTargetURL(root map[string]interface{}, url string) int {
+	count := 0
+	roots, ok := root["roots"].(map[string]interface{})
+	if !ok {
+		return count
+	}
+	for _, item := range roots {
+		folder, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if children, ok := folder["children"].([]interface{}); ok {
+			count += countTargetURLInNodes(children, url)
+		}
+	}
+	return count
+}
+
 func countURLInNodes(nodes []interface{}, url string) int {
 	count := 0
 	for _, item := range nodes {
@@ -171,6 +296,25 @@ func countURLInNodes(nodes []interface{}, url string) int {
 	return count
 }
 
+func countTargetURLInNodes(nodes []interface{}, url string) int {
+	count := 0
+	for _, item := range nodes {
+		node, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if node["type"] == "url" {
+			if rawURL, ok := node["url"].(string); ok && bookmarkTargetURL(rawURL) == url {
+				count++
+			}
+		}
+		if children, ok := node["children"].([]interface{}); ok {
+			count += countTargetURLInNodes(children, url)
+		}
+	}
+	return count
+}
+
 func bookmarkBarHasURL(root map[string]interface{}, url string) bool {
 	roots, ok := root["roots"].(map[string]interface{})
 	if !ok {
@@ -182,4 +326,56 @@ func bookmarkBarHasURL(root map[string]interface{}, url string) bool {
 	}
 	children, ok := bar["children"].([]interface{})
 	return ok && countURLInNodes(children, url) > 0
+}
+
+func bookmarkBarHasTargetURL(root map[string]interface{}, url string) bool {
+	roots, ok := root["roots"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	bar, ok := roots["bookmark_bar"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	children, ok := bar["children"].([]interface{})
+	return ok && countTargetURLInNodes(children, url) > 0
+}
+
+func firstBookmarkRawURL(root map[string]interface{}, name string) string {
+	roots, ok := root["roots"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	for _, item := range roots {
+		folder, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if children, ok := folder["children"].([]interface{}); ok {
+			if value := firstRawURLInNodes(children, name); value != "" {
+				return value
+			}
+		}
+	}
+	return ""
+}
+
+func firstRawURLInNodes(nodes []interface{}, name string) string {
+	for _, item := range nodes {
+		node, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if node["type"] == "url" && node["name"] == name {
+			if url, ok := node["url"].(string); ok {
+				return url
+			}
+		}
+		if children, ok := node["children"].([]interface{}); ok {
+			if value := firstRawURLInNodes(children, name); value != "" {
+				return value
+			}
+		}
+	}
+	return ""
 }

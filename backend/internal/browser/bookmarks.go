@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -44,6 +46,15 @@ func EnsureDefaultBookmarks(userDataDir string, bookmarks []config.BrowserBookma
 
 	// 取出 bookmark_bar children，按整个书签树收集已有 URL 集合
 	barChildren := extractBarChildren(root)
+	desiredURLs := make(map[string]string, len(bookmarks))
+	for _, b := range bookmarks {
+		if b.Name == "" || b.URL == "" {
+			continue
+		}
+		rawURL := strings.TrimSpace(b.URL)
+		desiredURLs[rawURL] = bookmarkNewTabURL(rawURL)
+	}
+	migrated := migrateBookmarksToNewTab(root)
 	existingURLs := collectRootURLs(root)
 
 	// 计算当前最大 id，用于分配新 id
@@ -55,7 +66,8 @@ func EnsureDefaultBookmarks(userDataDir string, bookmarks []config.BrowserBookma
 		if b.Name == "" || b.URL == "" {
 			continue
 		}
-		if existingURLs[b.URL] {
+		rawURL := strings.TrimSpace(b.URL)
+		if existingURLs[rawURL] {
 			continue
 		}
 		maxID++
@@ -67,13 +79,13 @@ func EnsureDefaultBookmarks(userDataDir string, bookmarks []config.BrowserBookma
 			"meta_info":      map[string]string{"power_bookmark_meta": ""},
 			"name":           b.Name,
 			"type":           "url",
-			"url":            b.URL,
+			"url":            desiredURLs[rawURL],
 		})
-		existingURLs[b.URL] = true
+		existingURLs[rawURL] = true
 		added = true
 	}
 
-	if !added {
+	if !added && !migrated {
 		return nil
 	}
 
@@ -90,6 +102,79 @@ func EnsureDefaultBookmarks(userDataDir string, bookmarks []config.BrowserBookma
 		return fmt.Errorf("序列化书签失败: %w", err)
 	}
 	return os.WriteFile(bookmarksPath, out, 0644)
+}
+
+const (
+	newTabBookmarkPrefix = "javascript:(function(){window.open("
+	newTabBookmarkSuffix = ",'_blank','noopener,noreferrer');})();"
+)
+
+func bookmarkNewTabURL(rawURL string) string {
+	target := strings.TrimSpace(rawURL)
+	if target == "" || strings.HasPrefix(strings.ToLower(target), "javascript:") {
+		return target
+	}
+	return newTabBookmarkPrefix + strconv.Quote(target) + newTabBookmarkSuffix
+}
+
+func bookmarkTargetURL(rawURL string) string {
+	value := strings.TrimSpace(rawURL)
+	if !strings.HasPrefix(value, newTabBookmarkPrefix) || !strings.HasSuffix(value, newTabBookmarkSuffix) {
+		return value
+	}
+	quoted := strings.TrimSuffix(strings.TrimPrefix(value, newTabBookmarkPrefix), newTabBookmarkSuffix)
+	target, err := strconv.Unquote(quoted)
+	if err != nil {
+		return value
+	}
+	return strings.TrimSpace(target)
+}
+
+func migrateBookmarksToNewTab(root map[string]interface{}) bool {
+	roots, ok := root["roots"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	changed := false
+	for _, item := range roots {
+		folder, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if children, ok := folder["children"].([]interface{}); ok {
+			if migrateBookmarkNodesToNewTab(children) {
+				changed = true
+			}
+		}
+	}
+	return changed
+}
+
+func migrateBookmarkNodesToNewTab(nodes []interface{}) bool {
+	changed := false
+	for _, item := range nodes {
+		node, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		switch node["type"] {
+		case "url":
+			rawURL, _ := node["url"].(string)
+			targetURL := bookmarkTargetURL(rawURL)
+			desiredURL := bookmarkNewTabURL(targetURL)
+			if desiredURL != "" && rawURL != desiredURL {
+				node["url"] = desiredURL
+				changed = true
+			}
+		case "folder":
+			if children, ok := node["children"].([]interface{}); ok {
+				if migrateBookmarkNodesToNewTab(children) {
+					changed = true
+				}
+			}
+		}
+	}
+	return changed
 }
 
 // newEmptyBookmarkRoot 构建一个空的书签根结构
@@ -192,7 +277,7 @@ func collectURLs(nodes []interface{}, out map[string]bool) {
 		}
 		if node["type"] == "url" {
 			if u, ok := node["url"].(string); ok {
-				out[u] = true
+				out[bookmarkTargetURL(u)] = true
 			}
 		} else if node["type"] == "folder" {
 			if sub, ok := node["children"].([]interface{}); ok {
