@@ -214,6 +214,10 @@ function CloseConfirmModal() {
   const supportsTray = platform === "windows";
   const quitting = quittingAction !== null;
 
+  const notifyRunningInstancesBlock = () => {
+    toast.warning("请先关闭所有浏览器实例，再退出应用。");
+  };
+
   useEffect(() => {
     const runtime = (window as any).runtime;
     if (!runtime?.EventsOn) return;
@@ -222,8 +226,13 @@ function CloseConfirmModal() {
       setQuittingAction(null);
       setOpen(true);
     });
+    const offBlocked = runtime.EventsOn(
+      "app:close-blocked-running-instances",
+      notifyRunningInstancesBlock,
+    );
     return () => {
       if (typeof off === "function") off();
+      if (typeof offBlocked === "function") offBlocked();
     };
   }, []);
 
@@ -261,7 +270,11 @@ function CloseConfirmModal() {
   const handleQuitAppOnly = async () => {
     setQuittingAction("app-only");
     try {
-      await QuitAppOnlyApp();
+      const didQuit = await QuitAppOnlyApp();
+      if (!didQuit) {
+        notifyRunningInstancesBlock();
+        setQuittingAction(null);
+      }
     } catch (error) {
       console.error("QuitAppOnly failed", error);
       setQuittingAction(null);

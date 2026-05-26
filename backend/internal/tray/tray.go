@@ -15,7 +15,7 @@ var iconData []byte
 // Callbacks 托盘回调
 type Callbacks struct {
 	OnShow        func()
-	OnQuitAppOnly func()
+	OnQuitAppOnly func() bool
 	OnQuit        func()
 }
 
@@ -60,9 +60,8 @@ func Run(cb Callbacks) {
 		})
 
 		mQuitAppOnly.Click(func() {
-			systray.Quit()
-			if cb.OnQuitAppOnly != nil {
-				cb.OnQuitAppOnly()
+			if cb.OnQuitAppOnly == nil || cb.OnQuitAppOnly() {
+				systray.Quit()
 			}
 		})
 

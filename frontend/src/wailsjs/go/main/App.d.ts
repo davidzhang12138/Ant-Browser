@@ -227,7 +227,7 @@ export function OpenProjectRoot():Promise<void>;
 
 export function OpenUserDataDir(arg1:string):Promise<void>;
 
-export function QuitAppOnly():Promise<void>;
+export function QuitAppOnly():Promise<boolean>;
 
 export function RedeemCDKey(arg1:string):Promise<void>;
 

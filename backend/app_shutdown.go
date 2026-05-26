@@ -34,12 +34,17 @@ func (a *App) ForceQuit() {
 	}
 }
 
-// QuitAppOnly 仅退出应用本身，保留当前已打开的浏览器实例。
-func (a *App) QuitAppOnly() {
+// QuitAppOnly 仅退出应用本身；存在已打开的浏览器实例时拒绝退出。
+func (a *App) QuitAppOnly() bool {
+	if a.hasOpenBrowserInstances() {
+		a.emitCloseBlockedByOpenInstances()
+		return false
+	}
 	a.setQuitMode(quitModeAppOnly)
 	if a.ctx != nil {
 		runtime.Quit(a.ctx)
 	}
+	return true
 }
 
 func Start(a *App, ctx context.Context) {
@@ -71,11 +76,48 @@ func ShouldBlockClose(a *App, ctx context.Context) bool {
 	if a.forceQuit {
 		return false
 	}
+	if a.hasOpenBrowserInstances() {
+		a.emitCloseBlockedByOpenInstancesForContext(ctx)
+		return true
+	}
 	if !platformSupportsTrayCloseFlow() {
 		return false
 	}
 	runtime.EventsEmit(ctx, "app:request-close")
 	return true
+}
+
+func (a *App) hasOpenBrowserInstances() bool {
+	if a == nil || a.browserMgr == nil {
+		return false
+	}
+
+	a.browserMgr.Mutex.Lock()
+	defer a.browserMgr.Mutex.Unlock()
+
+	for profileID, profile := range a.browserMgr.Profiles {
+		if profile != nil && profile.Running {
+			return true
+		}
+		if _, ok := a.browserMgr.BrowserProcesses[profileID]; ok {
+			return true
+		}
+	}
+	return len(a.browserMgr.BrowserProcesses) > 0
+}
+
+func (a *App) emitCloseBlockedByOpenInstances() {
+	if a == nil || a.ctx == nil {
+		return
+	}
+	a.emitCloseBlockedByOpenInstancesForContext(a.ctx)
+}
+
+func (a *App) emitCloseBlockedByOpenInstancesForContext(ctx context.Context) {
+	if ctx == nil {
+		return
+	}
+	runtime.EventsEmit(ctx, "app:close-blocked-running-instances")
 }
 
 func (a *App) stopRuntimeServices() {

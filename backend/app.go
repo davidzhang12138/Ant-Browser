@@ -16,7 +16,8 @@ import (
 type quitMode uint8
 
 const (
-	quitModeFull quitMode = iota
+	quitModeNone quitMode = iota
+	quitModeFull
 	quitModeAppOnly
 )
 

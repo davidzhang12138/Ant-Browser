@@ -28,7 +28,22 @@ func TestShouldBlockClose_NonWindowsDoesNotIntercept(t *testing.T) {
 	}
 }
 
-func TestQuitAppOnlyKeepsTrackedBrowsers(t *testing.T) {
+func TestShouldBlockClose_BlocksWhenBrowserInstanceIsOpen(t *testing.T) {
+	app := NewApp("")
+	app.browserMgr = browser.NewManager(config.DefaultConfig(), "")
+	app.browserMgr.Profiles = map[string]*BrowserProfile{
+		"profile-1": {
+			ProfileId: "profile-1",
+			Running:   true,
+		},
+	}
+
+	if !ShouldBlockClose(app, nil) {
+		t.Fatal("expected close to be blocked while a browser instance is open")
+	}
+}
+
+func TestQuitAppOnlyBlocksWhenBrowserInstanceIsOpen(t *testing.T) {
 	app := NewApp("")
 	app.browserMgr = browser.NewManager(config.DefaultConfig(), "")
 	app.browserMgr.Profiles = map[string]*BrowserProfile{
@@ -39,16 +54,15 @@ func TestQuitAppOnlyKeepsTrackedBrowsers(t *testing.T) {
 	}
 	app.browserMgr.BrowserProcesses["profile-1"] = nil
 
-	app.QuitAppOnly()
+	if app.QuitAppOnly() {
+		t.Fatal("expected app-only quit to be blocked while a browser instance is open")
+	}
 
-	if !app.forceQuit {
-		t.Fatal("expected QuitAppOnly to set forceQuit")
+	if app.forceQuit {
+		t.Fatal("expected blocked app-only quit not to set forceQuit")
 	}
-	if app.quitMode != quitModeAppOnly {
-		t.Fatalf("expected quitModeAppOnly, got %v", app.quitMode)
-	}
-	if app.shouldStopRuntimeServicesOnShutdown() {
-		t.Fatal("expected app-only quit to skip runtime service shutdown")
+	if app.quitMode != quitModeNone {
+		t.Fatalf("expected quitModeNone, got %v", app.quitMode)
 	}
 	if _, ok := app.browserMgr.BrowserProcesses["profile-1"]; !ok {
 		t.Fatal("expected tracked browser to remain untouched before process shutdown")

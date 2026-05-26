@@ -207,8 +207,8 @@ func main() {
 					runtime.WindowShow(wailsCtx)
 					runtime.WindowUnminimise(wailsCtx)
 				},
-				OnQuitAppOnly: func() {
-					app.QuitAppOnly()
+				OnQuitAppOnly: func() bool {
+					return app.QuitAppOnly()
 				},
 				OnQuit: func() {
 					app.ForceQuit()

@@ -5,7 +5,7 @@ package tray
 // Callbacks 托盘回调
 type Callbacks struct {
 	OnShow        func()
-	OnQuitAppOnly func()
+	OnQuitAppOnly func() bool
 	OnQuit        func()
 }
 
