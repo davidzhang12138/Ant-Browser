@@ -165,9 +165,10 @@ func (a *App) migrateToSQLite() {
 		}
 	}
 
-	if bookmarks, err := a.browserMgr.BookmarkDAO.List(); err == nil && len(bookmarks) == 0 {
+	if bookmarks, err := a.browserMgr.BookmarkDAO.List(); err == nil {
 		src := a.config.Browser.DefaultBookmarks
-		if len(src) == 0 {
+		needsInitialDefaults := len(bookmarks) == 0 || bookmarksOnlyContainRequiredTools(bookmarks)
+		if needsInitialDefaults && len(src) == 0 {
 			src = []config.BrowserBookmark{
 				{Name: "Google", URL: "https://www.google.com/"},
 				{Name: "Gmail", URL: "https://mail.google.com/"},
@@ -176,10 +177,40 @@ func (a *App) migrateToSQLite() {
 				{Name: "YouTube", URL: "https://www.youtube.com/"},
 			}
 		}
-		if err := a.browserMgr.BookmarkDAO.ReplaceAll(src); err != nil {
+		if !needsInitialDefaults {
+			src = bookmarks
+		}
+		next := mergeBookmarksByURL(src, requiredBookmarkList())
+		if len(next) == len(bookmarks) && !needsInitialDefaults {
+			return
+		}
+		if err := a.browserMgr.BookmarkDAO.ReplaceAll(next); err != nil {
 			log.Error("书签迁移失败", logger.F("error", err))
 		} else {
-			log.Info("书签数据已迁移", logger.F("count", len(src)))
+			log.Info("书签数据已迁移", logger.F("count", len(next)))
 		}
 	}
+}
+
+func bookmarksOnlyContainRequiredTools(bookmarks []config.BrowserBookmark) bool {
+	if len(bookmarks) == 0 {
+		return false
+	}
+	required := requiredToolBookmarkList
+	if len(bookmarks) > len(required) {
+		return false
+	}
+	for _, bookmark := range bookmarks {
+		found := false
+		for _, item := range required {
+			if strings.EqualFold(strings.TrimSpace(bookmark.URL), strings.TrimSpace(item.URL)) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }

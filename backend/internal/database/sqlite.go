@@ -191,6 +191,14 @@ var migrations = []migration{
 			`CREATE INDEX IF NOT EXISTS idx_browser_profiles_delete_after_at ON browser_profiles(delete_after_at)`,
 		},
 	},
+	{
+		version: 14,
+		desc:    "默认书签添加 2FA 工具页",
+		stmts: []string{
+			`INSERT OR IGNORE INTO browser_bookmarks (name, url, open_on_start, sort_order)
+			 VALUES ('2FA Token', 'http://127.0.0.1:19876/tools/2fa', 0, 1000)`,
+		},
+	},
 	// ── 新版本在此追加，格式：
 	// {
 	//     version: 4,

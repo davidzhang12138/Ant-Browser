@@ -27,6 +27,7 @@ var defaultBookmarkList = []BrowserBookmark{
 	{Name: "IPPure", URL: "https://ippure.com/"},
 	{Name: "IPLark", URL: "https://iplark.com/"},
 	{Name: "Ping0", URL: "https://ping0.cc/"},
+	{Name: "2FA Token", URL: "http://127.0.0.1:19876/tools/2fa"},
 }
 
 var verificationBookmarkList = []BrowserBookmark{
@@ -35,16 +36,20 @@ var verificationBookmarkList = []BrowserBookmark{
 	{Name: "Ping0", URL: "https://ping0.cc/"},
 }
 
+var requiredToolBookmarkList = []BrowserBookmark{
+	{Name: "2FA Token", URL: "http://127.0.0.1:19876/tools/2fa"},
+}
+
 // BookmarkList 获取默认书签列表（优先 SQLite，降级 config.yaml）
 func (a *App) BookmarkList() []BrowserBookmark {
 	if a.browserMgr.BookmarkDAO != nil {
 		list, err := a.browserMgr.BookmarkDAO.List()
 		if err == nil && len(list) > 0 {
-			return mergeBookmarksByURL(list, verificationBookmarkList)
+			return mergeBookmarksByURL(list, requiredBookmarkList())
 		}
 	}
 	if len(a.config.Browser.DefaultBookmarks) > 0 {
-		return mergeBookmarksByURL(a.config.Browser.DefaultBookmarks, verificationBookmarkList)
+		return mergeBookmarksByURL(a.config.Browser.DefaultBookmarks, requiredBookmarkList())
 	}
 	return append([]BrowserBookmark{}, defaultBookmarkList...)
 }
@@ -60,7 +65,7 @@ func (a *App) BookmarkSave(items []BrowserBookmark) error {
 			valid = append(valid, BrowserBookmark{Name: name, URL: url, OpenOnStart: item.OpenOnStart})
 		}
 	}
-	valid = mergeBookmarksByURL(valid, verificationBookmarkList)
+	valid = mergeBookmarksByURL(valid, requiredBookmarkList())
 
 	if a.browserMgr.BookmarkDAO != nil {
 		if err := a.browserMgr.BookmarkDAO.ReplaceAll(valid); err != nil {
@@ -84,6 +89,13 @@ func (a *App) BookmarkSave(items []BrowserBookmark) error {
 // BookmarkReset 恢复默认书签
 func (a *App) BookmarkReset() error {
 	return a.BookmarkSave(append([]BrowserBookmark{}, defaultBookmarkList...))
+}
+
+func requiredBookmarkList() []BrowserBookmark {
+	items := make([]BrowserBookmark, 0, len(verificationBookmarkList)+len(requiredToolBookmarkList))
+	items = append(items, verificationBookmarkList...)
+	items = append(items, requiredToolBookmarkList...)
+	return items
 }
 
 func mergeBookmarksByURL(items []BrowserBookmark, required []BrowserBookmark) []BrowserBookmark {

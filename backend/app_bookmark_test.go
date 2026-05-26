@@ -3,6 +3,7 @@ package backend
 import (
 	internalbrowser "ant-chrome/backend/internal/browser"
 	"ant-chrome/backend/internal/config"
+	"ant-chrome/backend/internal/database"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -69,6 +70,9 @@ func TestBookmarkListAlwaysIncludesVerificationBookmarks(t *testing.T) {
 			t.Fatalf("expected verification bookmark %s exactly once, got %+v", url, bookmarks)
 		}
 	}
+	if countBookmarkItemsByURL(bookmarks, "http://127.0.0.1:19876/tools/2fa") != 1 {
+		t.Fatalf("expected 2FA tool bookmark exactly once, got %+v", bookmarks)
+	}
 }
 
 func TestBookmarkSavePersistsVerificationBookmarks(t *testing.T) {
@@ -90,6 +94,49 @@ func TestBookmarkSavePersistsVerificationBookmarks(t *testing.T) {
 		if countBookmarkItemsByURL(app.config.Browser.DefaultBookmarks, url) != 1 {
 			t.Fatalf("expected saved verification bookmark %s exactly once, got %+v", url, app.config.Browser.DefaultBookmarks)
 		}
+	}
+	if countBookmarkItemsByURL(app.config.Browser.DefaultBookmarks, "http://127.0.0.1:19876/tools/2fa") != 1 {
+		t.Fatalf("expected saved 2FA tool bookmark exactly once, got %+v", app.config.Browser.DefaultBookmarks)
+	}
+}
+
+func TestMigrateToSQLiteKeepsDefaultBookmarksWhenToolBookmarkWasInsertedByMigration(t *testing.T) {
+	t.Parallel()
+
+	appRoot := t.TempDir()
+	cfg := config.DefaultConfig()
+	cfg.Browser.DefaultBookmarks = nil
+
+	db, err := database.NewDB(filepath.Join(appRoot, "app.db"))
+	if err != nil {
+		t.Fatalf("NewDB() error = %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err := db.Migrate(); err != nil {
+		t.Fatalf("Migrate() error = %v", err)
+	}
+
+	app := NewApp(appRoot)
+	app.config = cfg
+	app.db = db
+	app.browserMgr = internalbrowser.NewManager(cfg, appRoot)
+	conn := db.GetConn()
+	app.browserMgr.ProfileDAO = internalbrowser.NewSQLiteProfileDAO(conn)
+	app.browserMgr.ProxyDAO = internalbrowser.NewSQLiteProxyDAO(conn)
+	app.browserMgr.CoreDAO = internalbrowser.NewSQLiteCoreDAO(conn)
+	app.browserMgr.BookmarkDAO = internalbrowser.NewSQLiteBookmarkDAO(conn)
+
+	app.migrateToSQLite()
+
+	bookmarks, err := app.browserMgr.BookmarkDAO.List()
+	if err != nil {
+		t.Fatalf("BookmarkDAO.List() error = %v", err)
+	}
+	if countBookmarkItemsByURL(bookmarks, "https://www.google.com/") != 1 {
+		t.Fatalf("expected Google default bookmark after migration, got %+v", bookmarks)
+	}
+	if countBookmarkItemsByURL(bookmarks, "http://127.0.0.1:19876/tools/2fa") != 1 {
+		t.Fatalf("expected 2FA tool bookmark after migration, got %+v", bookmarks)
 	}
 }
 
