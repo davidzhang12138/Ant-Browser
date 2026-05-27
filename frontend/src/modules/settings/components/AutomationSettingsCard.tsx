@@ -1,16 +1,11 @@
 import { Badge, Button, Card, FormItem, Input, Progress, Select, Switch } from '../../../shared/components'
+import { useI18n } from '../../../shared/i18n'
 
 import type { AutomationNodeSource, AutomationRuntimeCheck, AutomationState, AutomationSystemNodeProbe } from '../api'
 import type { AutomationRuntimeProgress } from '../progress'
 
 type AutomationBusyState = 'none' | 'toggle' | 'probe' | 'runtime' | 'package' | 'install' | 'check'
 type AutomationStatusVariant = 'default' | 'success' | 'error' | 'warning' | 'info'
-
-const AUTOMATION_NODE_SOURCE_OPTIONS: Array<{ value: AutomationNodeSource; label: string }> = [
-  { value: 'auto', label: 'auto · 优先系统 Node，失败回退内建' },
-  { value: 'system', label: 'system · 强制系统 Node，不可用则报错' },
-  { value: 'bundled', label: 'bundled · 总是使用内建 Node' },
-]
 
 interface AutomationSettingsCardProps {
   automationState: AutomationState
@@ -32,7 +27,7 @@ interface AutomationSettingsCardProps {
   onSelfCheck: () => void
 }
 
-function resolveAutomationStatus(state: AutomationState): {
+function resolveAutomationStatus(state: AutomationState, t: (key: string) => string): {
   enabled: boolean
   ready: boolean
   installing: boolean
@@ -47,14 +42,14 @@ function resolveAutomationStatus(state: AutomationState): {
   const ready = state.status.ready
   const installing = state.status.installing
   const statusLabel = installing
-    ? '准备中'
+    ? t('settings.automation.status.preparing')
     : ready
-      ? '已就绪'
+      ? t('settings.automation.status.ready')
       : state.status.installed
-        ? '已安装'
+        ? t('settings.automation.status.installed')
         : state.status.lastError
-          ? '异常'
-          : '未安装'
+          ? t('settings.automation.status.error')
+          : t('settings.automation.status.notInstalled')
   const statusVariant = installing
     ? 'warning'
     : ready
@@ -64,16 +59,16 @@ function resolveAutomationStatus(state: AutomationState): {
         : 'default'
   const nodeSource = state.status.nodeSource || state.settings.nodeSource || 'auto'
   const nodeSourceLabel = nodeSource === 'system'
-    ? 'system（系统 Node）'
+    ? t('settings.automation.nodeSourceLabels.system')
     : nodeSource === 'bundled'
-      ? 'bundled（内建 Node）'
-      : 'auto（自动选择）'
+      ? t('settings.automation.nodeSourceLabels.bundled')
+      : t('settings.automation.nodeSourceLabels.auto')
   const systemNodePath = state.status.systemNodePath || state.settings.systemNodePath
   const systemNodeLabel = state.status.systemNodeDetected
-    ? '已检测到'
+    ? t('settings.automation.systemNode.detected')
     : systemNodePath
-      ? '已配置，待验证'
-      : '未检测到'
+      ? t('settings.automation.systemNode.configuredPending')
+      : t('settings.automation.systemNode.notDetected')
 
   return {
     enabled,
@@ -107,6 +102,12 @@ export function AutomationSettingsCard({
   onInstall,
   onSelfCheck,
 }: AutomationSettingsCardProps) {
+  const { t } = useI18n()
+  const automationNodeSourceOptions: Array<{ value: AutomationNodeSource; label: string }> = [
+    { value: 'auto', label: t('settings.automation.nodeSourceOptions.auto') },
+    { value: 'system', label: t('settings.automation.nodeSourceOptions.system') },
+    { value: 'bundled', label: t('settings.automation.nodeSourceOptions.bundled') },
+  ]
   const {
     enabled,
     ready,
@@ -117,19 +118,19 @@ export function AutomationSettingsCard({
     nodeSourceLabel,
     systemNodePath,
     systemNodeLabel,
-  } = resolveAutomationStatus(automationState)
+  } = resolveAutomationStatus(automationState, t)
 
   return (
-    <Card title="自动化支持" subtitle="首次启用时优先检测系统 Node，仅在需要时回退下载内建 Node，并准备私有 playwright-core">
+    <Card title={t('settings.automation.title')} subtitle={t('settings.automation.subtitle')}>
       <div className="space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-sm font-medium text-[var(--color-text-primary)]">启用自动化支持</p>
+              <p className="text-sm font-medium text-[var(--color-text-primary)]">{t('settings.automation.enableLabel')}</p>
               <Badge variant={statusVariant} size="sm" dot>{statusLabel}</Badge>
             </div>
             <p className="text-xs text-[var(--color-text-muted)] mt-1">
-              开启后应用会自动准备本地 automation runtime；关闭时不会卸载，后续再次启用可直接复用。
+              {t('settings.automation.enableHint')}
             </p>
           </div>
           <Switch
@@ -143,9 +144,9 @@ export function AutomationSettingsCard({
 
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-[var(--color-text-primary)]">默认无头模式</p>
+            <p className="text-sm font-medium text-[var(--color-text-primary)]">{t('settings.automation.headlessLabel')}</p>
             <p className="text-xs text-[var(--color-text-muted)] mt-1">
-              作为后续自动化任务的默认启动策略，首版先只保存配置，不直接改实例启动参数。
+              {t('settings.automation.headlessHint')}
             </p>
           </div>
           <Switch
@@ -158,19 +159,19 @@ export function AutomationSettingsCard({
         <div className="h-px bg-[var(--color-border-muted)]" />
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,220px)_minmax(0,1fr)] gap-4">
-          <FormItem label="Node 来源策略">
+          <FormItem label={t('settings.automation.nodeSourceLabel')}>
             <Select
               value={automationNodeSourceDraft}
               onChange={event => onNodeSourceDraftChange(event.target.value as AutomationNodeSource)}
               disabled={automationBusy !== 'none'}
-              options={AUTOMATION_NODE_SOURCE_OPTIONS}
+              options={automationNodeSourceOptions}
             />
           </FormItem>
-          <FormItem label="系统 Node 路径" hint="留空则走 PATH">
+          <FormItem label={t('settings.automation.systemNodePathLabel')} hint={t('settings.automation.systemNodePathHint')}>
             <Input
               value={automationSystemNodePathDraft}
               onChange={event => onSystemNodePathDraftChange(event.target.value)}
-              placeholder="例如 C:\\Program Files\\nodejs\\node.exe"
+              placeholder={t('settings.automation.systemNodePathPlaceholder')}
               disabled={automationBusy !== 'none' || automationNodeSourceDraft === 'bundled'}
             />
           </FormItem>
@@ -180,9 +181,9 @@ export function AutomationSettingsCard({
 
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-[var(--color-text-primary)]">允许导入 TypeScript 脚本（实验）</p>
+            <p className="text-sm font-medium text-[var(--color-text-primary)]">{t('settings.automation.typescriptBuildLabel')}</p>
             <p className="text-xs text-[var(--color-text-muted)] mt-1">
-              仅支持单入口、本地相对依赖，并会在导入时构建为 CommonJS；不支持外部 npm 依赖。
+              {t('settings.automation.typescriptBuildHint')}
             </p>
           </div>
           <Switch
@@ -194,7 +195,7 @@ export function AutomationSettingsCard({
 
         <div className="flex items-center justify-between gap-4 rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] px-3 py-3">
           <p className="text-xs text-[var(--color-text-muted)]">
-            `auto` 适合大多数环境；`system` 用于强制复用本机 Node；`bundled` 会忽略系统 Node，始终使用应用内建 runtime。
+            {t('settings.automation.nodeSourceHelp')}
           </p>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -204,7 +205,7 @@ export function AutomationSettingsCard({
               loading={automationBusy === 'probe'}
               disabled={automationBusy !== 'none' || automationNodeSourceDraft === 'bundled'}
             >
-              检测系统 Node
+              {t('settings.automation.actions.probeSystemNode')}
             </Button>
             <Button
               size="sm"
@@ -213,59 +214,59 @@ export function AutomationSettingsCard({
               loading={automationBusy === 'runtime' && automationRuntimeDirty}
               disabled={!automationRuntimeDirty || automationBusy !== 'none'}
             >
-              保存运行时策略
+              {t('settings.automation.actions.saveRuntimeSettings')}
             </Button>
           </div>
         </div>
 
         {automationProbe && (
           <div className="rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] px-3 py-2 text-xs text-[var(--color-text-secondary)] break-all">
-            系统 Node 检测：<code>{automationProbe.version}</code> · <code>{automationProbe.path}</code>
+            {t('settings.automation.probeResultPrefix')}<code>{automationProbe.version}</code> · <code>{automationProbe.path}</code>
           </div>
         )}
 
         <div className="rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] px-3 py-3 space-y-2 text-xs">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[var(--color-text-secondary)]">
-            <span>安装策略：<code>{automationState.settings.installPolicy}</code></span>
+            <span>{t('settings.automation.rows.installPolicy')}<code>{automationState.settings.installPolicy}</code></span>
             <span>Runtime：<code>{automationState.settings.runtimeVersion}</code></span>
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[var(--color-text-secondary)]">
-            <span>Node 来源：<code>{nodeSourceLabel}</code></span>
+            <span>{t('settings.automation.rows.nodeSource')}<code>{nodeSourceLabel}</code></span>
             <span>Node：<code>{automationState.status.nodeVersion || automationState.settings.nodeVersion}</code></span>
             <span>playwright-core：<code>{automationState.status.playwrightVersion || automationState.settings.playwrightVersion}</code></span>
-            <span>TS 导入构建：<code>{automationState.settings.allowTypeScriptBuild ? 'enabled' : 'disabled'}</code></span>
+            <span>{t('settings.automation.rows.tsBuild')}<code>{automationState.settings.allowTypeScriptBuild ? t('common.enabled') : t('common.disabled')}</code></span>
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[var(--color-text-secondary)]">
-            <span>系统 Node：<code>{systemNodeLabel}</code></span>
+            <span>{t('settings.automation.rows.systemNode')}<code>{systemNodeLabel}</code></span>
           </div>
           {automationState.status.nodeResolution && (
             <div className="text-[var(--color-text-muted)] break-all">
-              解析说明：{automationState.status.nodeResolution}
+              {t('settings.automation.rows.nodeResolution')}{automationState.status.nodeResolution}
             </div>
           )}
           {automationState.status.runtimeDir && (
             <div className="text-[var(--color-text-muted)] break-all">
-              运行时目录：<code>{automationState.status.runtimeDir}</code>
+              {t('settings.automation.rows.runtimeDir')}<code>{automationState.status.runtimeDir}</code>
             </div>
           )}
           {automationState.status.nodePath && (
             <div className="text-[var(--color-text-muted)] break-all">
-              Node 路径：<code>{automationState.status.nodePath}</code>
+              {t('settings.automation.rows.nodePath')}<code>{automationState.status.nodePath}</code>
             </div>
           )}
           {systemNodePath && (
             <div className="text-[var(--color-text-muted)] break-all">
-              系统 Node 路径：<code>{systemNodePath}</code>
+              {t('settings.automation.rows.systemNodePath')}<code>{systemNodePath}</code>
             </div>
           )}
           {automationState.status.systemNodeError && (
             <div className="text-[var(--color-warning)] break-all">
-              系统 Node 异常：{automationState.status.systemNodeError}
+              {t('settings.automation.rows.systemNodeError')}{automationState.status.systemNodeError}
             </div>
           )}
           {automationState.status.lastError && (
             <div className="text-[var(--color-error)] break-all">
-              最近错误：{automationState.status.lastError}
+              {t('settings.automation.rows.lastError')}{automationState.status.lastError}
             </div>
           )}
         </div>
@@ -289,7 +290,7 @@ export function AutomationSettingsCard({
 
         {automationCheck && (
           <div className="rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-secondary)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-            最近自检：<code>{automationCheck.nodeSource || nodeSource}</code> / Node <code>{automationCheck.nodeVersion}</code> / playwright-core <code>{automationCheck.playwrightVersion}</code>
+            {t('settings.automation.rows.lastSelfCheck')}<code>{automationCheck.nodeSource || nodeSource}</code> / Node <code>{automationCheck.nodeVersion}</code> / playwright-core <code>{automationCheck.playwrightVersion}</code>
           </div>
         )}
 
@@ -301,7 +302,7 @@ export function AutomationSettingsCard({
             loading={automationBusy === 'install'}
             disabled={installing}
           >
-            {automationState.status.installed ? '修复/重装运行时' : '立即准备运行时'}
+            {automationState.status.installed ? t('settings.automation.actions.repairRuntime') : t('settings.automation.actions.prepareRuntime')}
           </Button>
           <Button
             size="sm"
@@ -309,7 +310,7 @@ export function AutomationSettingsCard({
             loading={automationBusy === 'check'}
             disabled={!ready}
           >
-            运行自检
+            {t('settings.automation.actions.selfCheck')}
           </Button>
         </div>
       </div>

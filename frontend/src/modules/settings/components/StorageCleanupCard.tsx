@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Database, HardDrive, RefreshCw, Trash2 } from 'lucide-react'
 import { Button, Card, Modal } from '../../../shared/components'
+import { useI18n } from '../../../shared/i18n'
 import type { StorageCleanupOverview, StoragePathUsage } from '../api'
 
 type StorageCleanupBusy = 'none' | 'refresh' | 'legacy' | 'browser'
@@ -26,6 +27,8 @@ function formatBytes(value: number) {
 }
 
 function StorageUsageRow({ item }: { item: StoragePathUsage }) {
+  const { t } = useI18n()
+
   return (
     <div className="rounded-lg border border-[var(--color-border-default)] px-4 py-3">
       <div className="flex items-start justify-between gap-4">
@@ -34,7 +37,7 @@ function StorageUsageRow({ item }: { item: StoragePathUsage }) {
             <HardDrive className="h-4 w-4 text-[var(--color-text-muted)] shrink-0" />
             <span className="text-sm font-medium text-[var(--color-text-primary)]">{item.label}</span>
             <span className={`text-xs ${item.exists ? 'text-[var(--color-success)]' : 'text-[var(--color-text-muted)]'}`}>
-              {item.exists ? '存在' : '未发现'}
+              {item.exists ? t('settings.storage.status.exists') : t('settings.storage.status.notFound')}
             </span>
           </div>
           <p className="mt-1 truncate text-xs text-[var(--color-text-muted)]" title={item.path || '-'}>
@@ -49,7 +52,7 @@ function StorageUsageRow({ item }: { item: StoragePathUsage }) {
         </div>
         <div className="text-right shrink-0">
           <p className="text-base font-semibold text-[var(--color-text-primary)]">{formatBytes(item.sizeBytes)}</p>
-          <p className="mt-1 text-xs text-[var(--color-text-muted)]">{item.cleanable ? '可清理' : '保留'}</p>
+          <p className="mt-1 text-xs text-[var(--color-text-muted)]">{item.cleanable ? t('settings.storage.status.cleanable') : t('settings.storage.status.keep')}</p>
         </div>
       </div>
     </div>
@@ -63,12 +66,13 @@ export function StorageCleanupCard({
   onClearLegacy,
   onClearBrowserCaches,
 }: StorageCleanupCardProps) {
+  const { t } = useI18n()
   const [pendingAction, setPendingAction] = useState<'legacy' | 'browser' | null>(null)
   const actionRunning = busy === 'legacy' || busy === 'browser'
   const legacyDisabled = actionRunning
   const browserDisabled = actionRunning
   const confirmLegacy = pendingAction === 'legacy'
-  const confirmTitle = confirmLegacy ? '确认清理旧缓存' : '确认清理实例缓存'
+  const confirmTitle = confirmLegacy ? t('settings.storage.confirm.legacyTitle') : t('settings.storage.confirm.browserTitle')
 
   const handleConfirm = () => {
     if (pendingAction === 'legacy') {
@@ -82,12 +86,12 @@ export function StorageCleanupCard({
   return (
     <>
       <Card
-        title="存储清理"
-        subtitle="清理旧缓存目录和当前实例的浏览器缓存；不会删除账号、Cookies、Local Storage 或密码库"
+        title={t('settings.storage.title')}
+        subtitle={t('settings.storage.subtitle')}
         actions={
           <Button variant="secondary" size="sm" onClick={onRefresh} loading={busy === 'refresh'} disabled={actionRunning}>
             <RefreshCw className="h-4 w-4" />
-            重新扫描
+            {t('settings.storage.actions.rescan')}
           </Button>
         }
       >
@@ -102,10 +106,10 @@ export function StorageCleanupCard({
               <div>
                 <div className="flex items-center gap-2">
                   <Database className="h-4 w-4 text-[var(--color-text-muted)]" />
-                  <p className="text-sm font-medium text-[var(--color-text-primary)]">当前实例浏览器缓存</p>
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">{t('settings.storage.browserCacheTitle')}</p>
                 </div>
                 <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                  已扫描 {overview.currentProfileCount} 个数据目录，预计可清理 {formatBytes(overview.currentCacheBytes)}
+                  {t('settings.storage.scannedPrefix')}{overview.currentProfileCount}{t('settings.storage.scannedMiddle')}{formatBytes(overview.currentCacheBytes)}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -117,7 +121,7 @@ export function StorageCleanupCard({
                   disabled={browserDisabled}
                 >
                   <Trash2 className="h-4 w-4" />
-                  清理实例缓存
+                  {t('settings.storage.actions.clearBrowser')}
                 </Button>
                 <Button
                   variant="danger"
@@ -127,7 +131,7 @@ export function StorageCleanupCard({
                   disabled={legacyDisabled}
                 >
                   <Trash2 className="h-4 w-4" />
-                  清理旧缓存
+                  {t('settings.storage.actions.clearLegacy')}
                 </Button>
               </div>
             </div>
@@ -142,28 +146,28 @@ export function StorageCleanupCard({
         width="520px"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setPendingAction(null)}>取消</Button>
+            <Button variant="secondary" onClick={() => setPendingAction(null)}>{t('common.actions.cancel')}</Button>
             <Button variant={confirmLegacy ? 'danger' : 'primary'} onClick={handleConfirm}>
-              确认清理
+              {t('settings.storage.actions.confirmClear')}
             </Button>
           </>
         }
       >
         {confirmLegacy ? (
           <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
-            <p>即将清理旧版本或旧运行方式遗留的缓存目录。</p>
+            <p>{t('settings.storage.confirm.legacyBody')}</p>
             <p className="break-all rounded-md bg-[var(--color-bg-secondary)] px-3 py-2 text-xs text-[var(--color-text-muted)]">
               {overview.legacyCacheRoot.path || '~/Library/Caches/ant-browser'}
             </p>
             <p className="text-xs text-[var(--color-warning)]">
-              后端会再次校验该目录不是当前实例数据目录，校验不通过会拒绝清理。
+              {t('settings.storage.confirm.legacyWarning')}
             </p>
           </div>
         ) : (
           <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
-            <p>即将清理当前实例目录内的浏览器缓存文件。</p>
+            <p>{t('settings.storage.confirm.browserBody')}</p>
             <p className="text-xs text-[var(--color-text-muted)]">
-              只清理 Cache、Code Cache、ShaderCache 等缓存目录；不会删除 Cookies、Local Storage、账号密码或实例配置。正在运行的实例会跳过。
+              {t('settings.storage.confirm.browserDescription')}
             </p>
           </div>
         )}

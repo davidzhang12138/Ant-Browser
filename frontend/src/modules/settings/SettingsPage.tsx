@@ -32,7 +32,7 @@ import { useSettingsProgressEffects } from './hooks/useSettingsProgressEffects'
 import { normalizeLanguage, useI18n } from '../../shared/i18n'
 
 export function SettingsPage() {
-  const { t, setLanguage, supportedLanguages } = useI18n()
+  const { t, setLanguage, supportedLanguages, language } = useI18n()
   const [settings, setSettings] = useState<AppSettings>(defaultSettings)
   const [automationState, setAutomationState] = useState<AutomationState>(defaultAutomationState)
   const [storageOverview, setStorageOverview] = useState<StorageCleanupOverview>(defaultStorageCleanupOverview)
@@ -143,21 +143,21 @@ export function SettingsPage() {
       setAutomationState(next)
       if (!enabled) {
         setAutomationProgress(null)
-        toast.success('自动化支持已关闭')
+        toast.success(t('settings.automation.messages.disabled'))
         return
       }
       if (!next.status.ready) {
         setAutomationProgress({
           phase: 'checking',
           progress: 0,
-          message: '已开启自动化支持，正在准备运行时...',
+          message: t('settings.automation.messages.enabledPreparingProgress'),
         })
-        toast.success('自动化支持已开启，正在准备运行时')
+        toast.success(t('settings.automation.messages.enabledPreparing'))
         return
       }
-      toast.success('自动化支持已开启')
+      toast.success(t('settings.automation.messages.enabled'))
     } catch (error: any) {
-      toast.error(error?.message || '自动化配置保存失败')
+      toast.error(error?.message || t('settings.automation.messages.saveFailed'))
     } finally {
       setAutomationBusy('none')
     }
@@ -168,9 +168,9 @@ export function SettingsPage() {
     try {
       const next = await saveAutomationSettings(automationState.settings.enabled, headlessDefault)
       setAutomationState(next)
-      toast.success(headlessDefault ? '默认无头模式已开启' : '默认无头模式已关闭')
+      toast.success(headlessDefault ? t('settings.automation.messages.headlessEnabled') : t('settings.automation.messages.headlessDisabled'))
     } catch (error: any) {
-      toast.error(error?.message || '自动化配置保存失败')
+      toast.error(error?.message || t('settings.automation.messages.saveFailed'))
     } finally {
       setAutomationBusy('none')
     }
@@ -188,15 +188,15 @@ export function SettingsPage() {
         setAutomationProgress({
           phase: 'checking',
           progress: 0,
-          message: '运行时策略已保存，正在重新检查自动化运行时...',
+          message: t('settings.automation.messages.runtimeSavedRecheckingProgress'),
         })
-        toast.success('运行时策略已保存，正在重新检查')
+        toast.success(t('settings.automation.messages.runtimeSavedRechecking'))
         return
       }
 
-      toast.success('运行时策略已保存')
+      toast.success(t('settings.automation.messages.runtimeSaved'))
     } catch (error: any) {
-      toast.error(error?.message || '运行时策略保存失败')
+      toast.error(error?.message || t('settings.automation.messages.runtimeSaveFailed'))
     } finally {
       setAutomationBusy('none')
     }
@@ -207,9 +207,9 @@ export function SettingsPage() {
     try {
       const next = await saveAutomationScriptPackageSettings(allowTypeScriptBuild)
       setAutomationState(next)
-      toast.success(allowTypeScriptBuild ? 'TypeScript 导入构建已开启' : 'TypeScript 导入构建已关闭')
+      toast.success(allowTypeScriptBuild ? t('settings.automation.messages.tsBuildEnabled') : t('settings.automation.messages.tsBuildDisabled'))
     } catch (error: any) {
-      toast.error(error?.message || '脚本包配置保存失败')
+      toast.error(error?.message || t('settings.automation.messages.packageSaveFailed'))
     } finally {
       setAutomationBusy('none')
     }
@@ -220,10 +220,10 @@ export function SettingsPage() {
     try {
       const result = await automationProbeSystemNode(automationSystemNodePathDraft)
       setAutomationProbe(result)
-      toast.success(`系统 Node 可用：${result.version}`)
+      toast.success(`${t('settings.automation.messages.systemNodeAvailable')}${result.version}`)
     } catch (error: any) {
       setAutomationProbe(null)
-      toast.error(error?.message || '系统 Node 检测失败')
+      toast.error(error?.message || t('settings.automation.messages.systemNodeProbeFailed'))
     } finally {
       setAutomationBusy('none')
     }
@@ -237,11 +237,11 @@ export function SettingsPage() {
       setAutomationProgress({
         phase: 'checking',
         progress: 0,
-        message: '正在准备自动化运行时...',
+        message: t('settings.automation.messages.installProgress'),
       })
-      toast.success('已开始准备自动化运行时')
+      toast.success(t('settings.automation.messages.installStarted'))
     } catch (error: any) {
-      toast.error(error?.message || '启动自动化运行时安装失败')
+      toast.error(error?.message || t('settings.automation.messages.installStartFailed'))
     } finally {
       setAutomationBusy('none')
     }
@@ -253,32 +253,32 @@ export function SettingsPage() {
       const result = await automationRuntimeSelfCheck()
       setAutomationCheck(result)
       if (result.ok) {
-        toast.success(`自检通过：Node ${result.nodeVersion} / playwright-core ${result.playwrightVersion}`)
+        toast.success(`${t('settings.automation.messages.selfCheckPassed')}Node ${result.nodeVersion} / playwright-core ${result.playwrightVersion}`)
       } else {
-        toast.warning('自检未通过')
+        toast.warning(t('settings.automation.messages.selfCheckFailed'))
       }
     } catch (error: any) {
       setAutomationCheck(null)
-      toast.error(error?.message || '自动化运行时自检失败')
+      toast.error(error?.message || t('settings.automation.messages.selfCheckError'))
     } finally {
       setAutomationBusy('none')
     }
   }
 
   const handleInitializeSystem = async () => {
-    if (!confirm('初始化会清空当前数据并恢复默认状态，是否继续？')) {
+    if (!confirm(t('settings.backup.messages.initializeConfirm'))) {
       return
     }
     setActionLoading('init')
     try {
       const res = await initializeSystemData()
       if (res.cancelled) {
-        toast.info('已取消初始化')
+        toast.info(t('settings.backup.messages.initializeCancelled'))
         return
       }
-      toast.success(res.message || '初始化完成')
+      toast.success(res.message || t('settings.backup.messages.initializeDone'))
     } catch (error: any) {
-      toast.error(error?.message || '初始化失败')
+      toast.error(error?.message || t('settings.backup.messages.initializeFailed'))
     } finally {
       setActionLoading('none')
     }
@@ -287,32 +287,32 @@ export function SettingsPage() {
   const handleExportSystem = async () => {
     setActionLoading('export')
     setExportLogs([])
-    setExportProgress({ phase: 'starting', progress: 0, message: '准备导出...' })
+    setExportProgress({ phase: 'starting', progress: 0, message: t('settings.backup.messages.exportStarting') })
     try {
       const res = await exportSystemConfig()
       if (res.cancelled) {
         setExportProgress(null)
         setExportLogs([])
-        toast.info('已取消导出')
+        toast.info(t('settings.backup.messages.exportCancelled'))
         return
       }
       setExportProgress(prev => prev?.phase === 'done'
         ? prev
-        : { phase: 'done', progress: 100, message: res.message || '导出完成' })
-      toast.success(res.message || '导出完成')
+        : { phase: 'done', progress: 100, message: res.message || t('settings.backup.messages.exportDone') })
+      toast.success(res.message || t('settings.backup.messages.exportDone'))
     } catch (error: any) {
       setExportProgress(prev => ({
         phase: 'error',
         progress: prev?.progress ?? 0,
-        message: error?.message || '导出失败',
+        message: error?.message || t('settings.backup.messages.exportFailed'),
       }))
       setExportLogs(prev => {
-        const timestamp = new Date().toLocaleTimeString('zh-CN', { hour12: false })
-        const text = error?.message || '导出失败'
+        const timestamp = new Date().toLocaleTimeString(language, { hour12: false })
+        const text = error?.message || t('settings.backup.messages.exportFailed')
         const next = [...prev, { id: Date.now() + Math.floor(Math.random() * 1000), phase: 'error', time: timestamp, text }]
         return next.length > 120 ? next.slice(next.length - 120) : next
       })
-      toast.error(error?.message || '导出失败')
+      toast.error(error?.message || t('settings.backup.messages.exportFailed'))
     } finally {
       setActionLoading('none')
     }
@@ -323,13 +323,13 @@ export function SettingsPage() {
     setImportProgress({
       phase: 'starting',
       progress: 0,
-      message: resetFirst ? '等待选择 ZIP 配置（先初始化后加载）...' : '等待选择 ZIP 配置（判重合并）...',
+      message: resetFirst ? t('settings.backup.messages.importWaitingReset') : t('settings.backup.messages.importWaitingMerge'),
     })
     try {
       const res = await importSystemConfig(resetFirst)
       if (res.cancelled) {
         setImportProgress(null)
-        toast.info('已取消加载')
+        toast.info(t('settings.backup.messages.importCancelled'))
         return
       }
       const imported = res.imported ?? 0
@@ -344,16 +344,16 @@ export function SettingsPage() {
           .map(item => (item?.componentName || item?.componentId || '').trim())
           .filter(Boolean)
         const moduleHint = moduleNames.length > 0
-          ? `：${moduleNames.slice(0, 3).join('、')}${moduleNames.length > 3 ? ` 等 ${moduleNames.length} 个模块` : ''}`
+          ? `${t('settings.backup.messages.moduleHintPrefix')}${moduleNames.slice(0, 3).join(t('settings.backup.messages.moduleNameSeparator'))}${moduleNames.length > 3 ? `${t('settings.backup.messages.moduleHintMorePrefix')}${moduleNames.length}${t('settings.backup.messages.moduleHintMoreSuffix')}` : ''}`
           : ''
         if (componentTotal > 0) {
           const componentSuccess = Math.max(0, componentTotal - componentFailed)
-          toast.warning(`加载完成（部分成功）：模块成功 ${componentSuccess}/${componentTotal}，异常 ${componentFailed}${moduleHint}`)
+          toast.warning(`${t('settings.backup.messages.importPartialWithTotalPrefix')}${componentSuccess}/${componentTotal}${t('settings.backup.messages.importPartialWithTotalMiddle')}${componentFailed}${moduleHint}`)
         } else {
-          toast.warning(`加载完成（部分成功）：异常模块 ${componentFailed}${moduleHint}`)
+          toast.warning(`${t('settings.backup.messages.importPartialPrefix')}${componentFailed}${moduleHint}`)
         }
       } else {
-        toast.success(`加载完成：导入 ${imported}，跳过 ${skipped}，冲突 ${conflicts}`)
+        toast.success(`${t('settings.backup.messages.importDonePrefix')}${imported}${t('settings.backup.messages.importDoneSkipped')}${skipped}${t('settings.backup.messages.importDoneConflicts')}${conflicts}`)
       }
       setImportModalOpen(false)
       setImportProgress(null)
@@ -361,9 +361,9 @@ export function SettingsPage() {
       setImportProgress(prev => ({
         phase: 'error',
         progress: prev?.progress ?? 0,
-        message: error?.message || '加载失败',
+        message: error?.message || t('settings.backup.messages.importFailed'),
       }))
-      toast.error(error?.message || '加载失败')
+      toast.error(error?.message || t('settings.backup.messages.importFailed'))
     } finally {
       setActionLoading('none')
     }
@@ -376,7 +376,7 @@ export function SettingsPage() {
       setStorageOverview(overview)
       setStorageScanned(true)
     } catch (error: any) {
-      toast.error(error?.message || '存储扫描失败')
+      toast.error(error?.message || t('settings.storage.messages.scanFailed'))
     } finally {
       setStorageScanLoading(false)
     }
@@ -386,11 +386,11 @@ export function SettingsPage() {
     setStorageActionLoading('legacy')
     try {
       const result = await clearLegacyCacheRoot()
-      toast.success(result.message || '旧缓存已清理')
+      toast.success(result.message || t('settings.storage.messages.legacyCleared'))
       const overview = await fetchStorageCleanupOverview()
       setStorageOverview(overview)
     } catch (error: any) {
-      toast.error(error?.message || '旧缓存清理失败')
+      toast.error(error?.message || t('settings.storage.messages.legacyClearFailed'))
     } finally {
       setStorageActionLoading('none')
     }
@@ -400,11 +400,11 @@ export function SettingsPage() {
     setStorageActionLoading('browser')
     try {
       const result = await clearCurrentBrowserCaches()
-      toast.success(result.message || '实例缓存已清理')
+      toast.success(result.message || t('settings.storage.messages.browserCleared'))
       const overview = await fetchStorageCleanupOverview()
       setStorageOverview(overview)
     } catch (error: any) {
-      toast.error(error?.message || '实例缓存清理失败')
+      toast.error(error?.message || t('settings.storage.messages.browserClearFailed'))
     } finally {
       setStorageActionLoading('none')
     }
