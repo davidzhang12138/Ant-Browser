@@ -9,6 +9,7 @@
     "test:core-version": "node ./scripts/test-core-version-matcher.mjs",
     "test:fingerprint": "node ./scripts/test-fingerprint-serializer.mjs",
     "test:fingerprint-panel": "node ./scripts/test-fingerprint-panel-options.mjs",
+    "test:i18n": "node ./scripts/test-i18n-messages.mjs",
     "test:theme": "node ./scripts/test-theme-resolver.mjs",
     "dev": "node ./scripts/dev-watcher.mjs",
     "dev:raw": "npm run ensure:native && node --max-old-space-size=256 --max-semi-space-size=16 ./node_modules/vite/bin/vite.js",
