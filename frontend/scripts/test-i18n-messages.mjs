@@ -34,6 +34,23 @@ function flattenKeys(value, prefix = '') {
   })
 }
 
+function flattenLeaves(value, prefix = '') {
+  return Object.entries(value).flatMap(([key, child]) => {
+    const path = prefix ? `${prefix}.${key}` : key
+    if (child && typeof child === 'object' && !Array.isArray(child)) {
+      return flattenLeaves(child, path)
+    }
+    return [{ path, value: child }]
+  })
+}
+
+function assertNonEmptyLeafValues(messages, language) {
+  for (const { path, value } of flattenLeaves(messages)) {
+    assert.equal(typeof value, 'string', `${language}.${path} must be a string`)
+    assert.notEqual(value.trim(), '', `${language}.${path} must not be empty`)
+  }
+}
+
 const typesModule = loadTsModule('../src/shared/i18n/types.ts')
 const zhModule = loadTsModule('../src/shared/i18n/messages.zh-CN.ts')
 const enModule = loadTsModule('../src/shared/i18n/messages.en-US.ts')
@@ -54,6 +71,8 @@ const zhKeys = flattenKeys(zhModule.zhCNMessages).sort()
 const enKeys = flattenKeys(enModule.enUSMessages).sort()
 
 assert.equal(JSON.stringify(enKeys), JSON.stringify(zhKeys))
+assertNonEmptyLeafValues(zhModule.zhCNMessages, 'zh-CN')
+assertNonEmptyLeafValues(enModule.enUSMessages, 'en-US')
 assert.ok(zhKeys.includes('common.actions.save'))
 assert.ok(zhKeys.includes('nav.browserList'))
 assert.ok(zhKeys.includes('settings.language'))
