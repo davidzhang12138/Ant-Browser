@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronUp, Copy, Pencil, Play, RefreshCw, Square, Trash2 } from 'lucide-react'
 
 import { Button, toast } from '../../../shared/components'
+import { useI18n } from '../../../shared/i18n'
 import { regenerateBrowserProfileCode, setBrowserProfileCode } from '../api'
 
 interface BatchToolbarProps {
@@ -25,28 +26,29 @@ export function BatchToolbar({
   onBatchDelete,
   batchLoading,
 }: BatchToolbarProps) {
+  const { t } = useI18n()
   if (selectedCount === 0) return null
 
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 rounded-lg">
-      <span className="text-sm font-medium text-[var(--color-accent)]">已选 {selectedCount} / {totalCount}</span>
+      <span className="text-sm font-medium text-[var(--color-accent)]">{t('browserList.widgets.selected')} {selectedCount} / {totalCount}</span>
       <div className="flex gap-1.5 ml-auto">
-        <Button size="sm" variant="ghost" onClick={onSelectAll}>全选</Button>
-        <Button size="sm" variant="ghost" onClick={onDeselectAll}>取消</Button>
-        <Button size="sm" onClick={onBatchStart} loading={batchLoading} title="批量启动">
-          <Play className="w-3.5 h-3.5" />启动
+        <Button size="sm" variant="ghost" onClick={onSelectAll}>{t('browserList.actions.selectAll')}</Button>
+        <Button size="sm" variant="ghost" onClick={onDeselectAll}>{t('browserList.actions.deselectAll')}</Button>
+        <Button size="sm" onClick={onBatchStart} loading={batchLoading} title={t('browserList.actions.batchStart')}>
+          <Play className="w-3.5 h-3.5" />{t('browserList.actions.launch')}
         </Button>
-        <Button size="sm" variant="secondary" onClick={onBatchStop} loading={batchLoading} title="批量停止">
-          <Square className="w-3.5 h-3.5" />停止
+        <Button size="sm" variant="secondary" onClick={onBatchStop} loading={batchLoading} title={t('browserList.actions.batchStop')}>
+          <Square className="w-3.5 h-3.5" />{t('browserList.actions.stop')}
         </Button>
         <Button
           size="sm"
           variant="ghost"
           onClick={onBatchDelete}
-          title="批量删除"
+          title={t('browserList.actions.batchDelete')}
           className="text-red-500 hover:text-red-600"
         >
-          <Trash2 className="w-3.5 h-3.5" />删除
+          <Trash2 className="w-3.5 h-3.5" />{t('common.actions.delete')}
         </Button>
       </div>
     </div>
@@ -60,11 +62,12 @@ interface LaunchCodeCellProps {
 }
 
 export function LaunchCodeCell({ profileId, code, onRefresh }: LaunchCodeCellProps) {
+  const { t } = useI18n()
   const [loading, setLoading] = useState(false)
 
   const handleCopy = () => {
     if (!code) return
-    navigator.clipboard.writeText(code).then(() => toast.success('已复制快捷码'))
+    navigator.clipboard.writeText(code).then(() => toast.success(t('browserList.widgets.launchCodeCopied')))
   }
 
   const handleRegenerate = async () => {
@@ -72,21 +75,21 @@ export function LaunchCodeCell({ profileId, code, onRefresh }: LaunchCodeCellPro
     try {
       await regenerateBrowserProfileCode(profileId)
       onRefresh()
-      toast.success('快捷码已重新生成')
+      toast.success(t('browserList.widgets.launchCodeRegenerated'))
     } catch {
-      toast.error('重新生成失败')
+      toast.error(t('browserList.widgets.launchCodeRegenerateFailed'))
     } finally {
       setLoading(false)
     }
   }
 
   const handleCustomCode = async () => {
-    const next = prompt('请输入自定义 Code（4-32位，仅支持字母/数字/_/-）', code || '')
+    const next = prompt(t('browserList.widgets.customCodePrompt'), code || '')
     if (next == null) return
 
     const value = next.trim()
     if (!value) {
-      toast.error('Code 不能为空')
+      toast.error(t('browserList.widgets.codeRequired'))
       return
     }
 
@@ -94,9 +97,9 @@ export function LaunchCodeCell({ profileId, code, onRefresh }: LaunchCodeCellPro
     try {
       const applied = await setBrowserProfileCode(profileId, value)
       onRefresh()
-      toast.success(`Code 已更新为 ${applied}`)
+      toast.success(`${t('browserList.widgets.codeUpdated')} ${applied}`)
     } catch (error: any) {
-      toast.error(error?.message || '设置自定义 Code 失败')
+      toast.error(error?.message || t('browserList.widgets.customCodeFailed'))
     } finally {
       setLoading(false)
     }
@@ -109,13 +112,13 @@ export function LaunchCodeCell({ profileId, code, onRefresh }: LaunchCodeCellPro
   return (
     <div className="flex items-center gap-1">
       <code className="text-xs font-mono bg-[var(--color-bg-secondary)] px-1.5 py-0.5 rounded text-[var(--color-accent)]">{code}</code>
-      <button onClick={handleCopy} className="p-0.5 hover:text-[var(--color-accent)] text-[var(--color-text-muted)] transition-colors" title="复制">
+      <button onClick={handleCopy} className="p-0.5 hover:text-[var(--color-accent)] text-[var(--color-text-muted)] transition-colors" title={t('common.actions.copy')}>
         <Copy className="w-3 h-3" />
       </button>
-      <button onClick={handleRegenerate} disabled={loading} className="p-0.5 hover:text-[var(--color-accent)] text-[var(--color-text-muted)] transition-colors disabled:opacity-50" title="重新生成">
+      <button onClick={handleRegenerate} disabled={loading} className="p-0.5 hover:text-[var(--color-accent)] text-[var(--color-text-muted)] transition-colors disabled:opacity-50" title={t('browserList.actions.regenerate')}>
         <RefreshCw className="w-3 h-3" />
       </button>
-      <button onClick={handleCustomCode} disabled={loading} className="p-0.5 hover:text-[var(--color-accent)] text-[var(--color-text-muted)] transition-colors disabled:opacity-50" title="自定义">
+      <button onClick={handleCustomCode} disabled={loading} className="p-0.5 hover:text-[var(--color-accent)] text-[var(--color-text-muted)] transition-colors disabled:opacity-50" title={t('browserList.actions.custom')}>
         <Pencil className="w-3 h-3" />
       </button>
     </div>
@@ -127,6 +130,7 @@ interface KeywordInlineRowProps {
 }
 
 export function KeywordInlineRow({ keywords }: KeywordInlineRowProps) {
+  const { t } = useI18n()
   const [expanded, setExpanded] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [isOverflowing, setIsOverflowing] = useState(false)
@@ -138,7 +142,7 @@ export function KeywordInlineRow({ keywords }: KeywordInlineRowProps) {
   }, [keywords])
 
   if (!keywords?.length) {
-    return <span className="text-xs text-[var(--color-text-muted)] italic">暂无关键字</span>
+    return <span className="text-xs text-[var(--color-text-muted)] italic">{t('browserList.widgets.noKeywords')}</span>
   }
 
   return (
@@ -164,9 +168,9 @@ export function KeywordInlineRow({ keywords }: KeywordInlineRowProps) {
           className="shrink-0 flex items-center gap-1 text-xs font-medium text-[var(--color-accent)] hover:text-indigo-400 mt-1 focus:outline-none"
         >
           {expanded ? (
-            <>收回 <ChevronUp className="w-3.5 h-3.5" /></>
+            <>{t('browserList.widgets.collapse')} <ChevronUp className="w-3.5 h-3.5" /></>
           ) : (
-            <>展开详情 <ChevronDown className="w-3.5 h-3.5" /></>
+            <>{t('browserList.widgets.expandDetails')} <ChevronDown className="w-3.5 h-3.5" /></>
           )}
         </button>
       )}

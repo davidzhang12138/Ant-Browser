@@ -3,6 +3,7 @@ import { CheckCircle, ChevronRight, ChevronUp, Edit2, LayoutGrid, List, Play, Pl
 
 import { Button, Card, FormItem, Input, Modal, Switch, Table, Textarea } from '../../../shared/components'
 import type { TableColumn } from '../../../shared/components/Table'
+import { useI18n } from '../../../shared/i18n'
 
 import type { BrowserCore, BrowserCoreInput, BrowserGroupWithCount, BrowserProxy, BrowserSettings } from '../types'
 import { InstanceFilterBar } from './InstanceFilterBar'
@@ -45,44 +46,45 @@ export function BrowserListHeader({
   onOpenSettings,
   onViewModeChange,
 }: BrowserListHeaderProps) {
+  const { t } = useI18n()
   return (
     <>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">实例列表</h1>
+          <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">{t('browserList.title')}</h1>
           <p className="text-sm text-[var(--color-text-muted)] mt-1">
-            当前配置总数 {profileCount}
+            {t('browserList.totalCount')} {profileCount}
             {filteredProfileCount !== profileCount && (
-              <span className="ml-1 text-[var(--color-accent)]">（已筛选 {filteredProfileCount}）</span>
+              <span className="ml-1 text-[var(--color-accent)]">（{t('browserList.filteredCount')} {filteredProfileCount}）</span>
             )}
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" onClick={onToggleHeaderCollapsed}>
             {headerCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-            {headerCollapsed ? '展开面板' : '收起面板'}
+            {headerCollapsed ? t('browserList.actions.expandPanel') : t('browserList.actions.collapsePanel')}
           </Button>
           <Button variant="secondary" size="sm" onClick={onRefresh}>
-            <RefreshCw className="w-4 h-4" />刷新
+            <RefreshCw className="w-4 h-4" />{t('browserList.actions.refresh')}
           </Button>
           <Button variant="secondary" size="sm" onClick={onOpenTrash}>
-            <Trash2 className="w-4 h-4" />回收站
+            <Trash2 className="w-4 h-4" />{t('browserList.actions.recycleBin')}
           </Button>
           <Button variant="secondary" size="sm" onClick={onOpenSettings}>
-            <Sliders className="w-4 h-4" />基础配置
+            <Sliders className="w-4 h-4" />{t('browserList.actions.basicSettings')}
           </Button>
           <div className="flex items-center bg-[var(--color-bg-secondary)] rounded-md border border-[var(--color-border-default)] p-0.5 ml-2">
             <button
               className={`p-1.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors ${viewMode === 'card' ? 'bg-[var(--color-bg-surface)] shadow-sm text-[var(--color-accent)]' : ''}`}
               onClick={() => onViewModeChange('card')}
-              title="卡片视图"
+              title={t('browserList.actions.cardView')}
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               className={`p-1.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors ${viewMode === 'table' ? 'bg-[var(--color-bg-surface)] shadow-sm text-[var(--color-accent)]' : ''}`}
               onClick={() => onViewModeChange('table')}
-              title="表格视图"
+              title={t('browserList.actions.tableView')}
             >
               <List className="w-4 h-4" />
             </button>
@@ -90,7 +92,7 @@ export function BrowserListHeader({
           <span className="w-px h-4 bg-[var(--color-border-muted)] mx-1 self-center"></span>
           <Link to="/browser/edit/new">
             <Button size="sm">
-              <Play className="w-4 h-4" />新建配置
+              <Play className="w-4 h-4" />{t('browserList.actions.newConfig')}
             </Button>
           </Link>
         </div>
@@ -149,29 +151,30 @@ export function BrowserListSettingsModal({
   onDeleteCore,
   onSetDefaultCore,
 }: BrowserListSettingsModalProps) {
+  const { t } = useI18n()
   const coreColumns: TableColumn<BrowserCore>[] = [
-    { key: 'coreName', title: '名称' },
-    { key: 'corePath', title: '路径' },
+    { key: 'coreName', title: t('browserList.columns.name') },
+    { key: 'corePath', title: t('browserList.columns.path') },
     {
       key: 'isDefault',
-      title: '默认',
+      title: t('browserList.columns.default'),
       render: (value) => (value ? <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" /> : null),
     },
     {
       key: 'actions',
-      title: '操作',
+      title: t('browserList.columns.actions'),
       align: 'right',
       render: (_, record) => (
         <div className="flex justify-end gap-1">
           {!record.isDefault && (
-            <Button size="sm" variant="ghost" onClick={() => onSetDefaultCore(record.coreId)} title="设为默认">
+            <Button size="sm" variant="ghost" onClick={() => onSetDefaultCore(record.coreId)} title={t('browserList.actions.setDefault')}>
               <Star className="w-4 h-4" />
             </Button>
           )}
-          <Button size="sm" variant="ghost" onClick={() => onEditCore(record)} title="编辑">
+          <Button size="sm" variant="ghost" onClick={() => onEditCore(record)} title={t('browserList.actions.edit')}>
             <Edit2 className="w-4 h-4" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => onDeleteCore(record.coreId)} title="删除">
+          <Button size="sm" variant="ghost" onClick={() => onDeleteCore(record.coreId)} title={t('common.actions.delete')}>
             <Trash2 className="w-4 h-4" />
           </Button>
         </div>
@@ -183,22 +186,22 @@ export function BrowserListSettingsModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="基础配置"
+      title={t('browserList.actions.basicSettings')}
       width="700px"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>取消</Button>
-          <Button onClick={onSave} loading={savingSettings}>保存</Button>
+          <Button variant="secondary" onClick={onClose}>{t('common.actions.cancel')}</Button>
+          <Button onClick={onSave} loading={savingSettings}>{t('common.actions.save')}</Button>
         </>
       }
     >
       <div className="space-y-6">
         <div>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-[var(--color-text-primary)]">内核管理</span>
+            <span className="text-sm font-medium text-[var(--color-text-primary)]">{t('core.title')}</span>
             <div className="flex gap-2">
               <Button size="sm" onClick={onAddCore}>
-                <Plus className="w-4 h-4" />新增内核
+                <Plus className="w-4 h-4" />{t('core.actions.add')}
               </Button>
             </div>
           </div>
@@ -207,14 +210,14 @@ export function BrowserListSettingsModal({
           </Card>
         </div>
 
-        <FormItem label="用户数据根目录">
+        <FormItem label={t('core.userDataRoot')}>
           <Input
             value={settings.userDataRoot}
             onChange={(event) => onSettingsChange({ userDataRoot: event.target.value })}
             placeholder="data"
           />
         </FormItem>
-        <FormItem label="默认指纹参数（每行一个）">
+        <FormItem label={t('browserList.settingsModal.defaultFingerprintArgsLines')}>
           <Textarea
             value={fingerprintText}
             onChange={(event) => onFingerprintTextChange(event.target.value)}
@@ -222,7 +225,7 @@ export function BrowserListSettingsModal({
             placeholder="--fingerprint-brand=Chrome"
           />
         </FormItem>
-        <FormItem label="默认启动参数（每行一个）">
+        <FormItem label={t('browserList.settingsModal.defaultLaunchArgsLines')}>
           <Textarea
             value={launchText}
             onChange={(event) => onLaunchTextChange(event.target.value)}
@@ -230,19 +233,19 @@ export function BrowserListSettingsModal({
             placeholder="--disable-sync"
           />
         </FormItem>
-        <FormItem label="默认启动页面（每行一个 URL）" hint="留空则启动时不再自动打开页面">
+        <FormItem label={t('browserList.settingsModal.defaultStartUrlsLines')} hint={t('browserList.settingsModal.startUrlsHint')}>
           <Textarea
             value={startUrlsText}
             onChange={(event) => onStartUrlsTextChange(event.target.value)}
             rows={4}
-            placeholder="启动 URL"
+            placeholder={t('core.modals.startUrlPlaceholder')}
           />
         </FormItem>
-        <FormItem label="恢复上次关闭的标签页" hint="关闭后只打开默认启动页或空白页">
+        <FormItem label={t('browserList.settingsModal.restoreTabsLabel')} hint={t('browserList.settingsModal.restoreTabsHint')}>
           <div className="flex items-center justify-between rounded-lg border border-[var(--color-border-default)] px-3 py-2">
             <div>
-              <p className="text-sm text-[var(--color-text-primary)]">允许恢复旧 tab</p>
-              <p className="text-xs text-[var(--color-text-muted)] mt-1">关闭后，下次启动会继续恢复之前的标签页和窗口。</p>
+              <p className="text-sm text-[var(--color-text-primary)]">{t('browserList.settingsModal.allowRestoreOldTabs')}</p>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">{t('browserList.settingsModal.restoreOldTabsDescription')}</p>
             </div>
             <Switch
               checked={settings.restoreLastSession}
@@ -251,7 +254,7 @@ export function BrowserListSettingsModal({
           </div>
         </FormItem>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormItem label="启动就绪超时（毫秒）" hint="默认 3000，慢机器可调到 5000-10000">
+          <FormItem label={t('browserList.settingsModal.readyTimeoutLabel')} hint={t('browserList.settingsModal.readyTimeoutHint')}>
             <Input
               type="number"
               min={1000}
@@ -265,7 +268,7 @@ export function BrowserListSettingsModal({
               placeholder="3000"
             />
           </FormItem>
-          <FormItem label="启动稳定窗口（毫秒）" hint="建议 1200-3000">
+          <FormItem label={t('browserList.settingsModal.stableWindowLabel')} hint={t('browserList.settingsModal.stableWindowHint')}>
             <Input
               type="number"
               min={0}
@@ -306,36 +309,37 @@ export function BrowserCoreEditorModal({
   onValidate,
   onCoreFormChange,
 }: BrowserCoreEditorModalProps) {
+  const { t } = useI18n()
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={coreForm.coreId ? '编辑内核' : '新增内核'}
+      title={coreForm.coreId ? t('core.modals.editCore') : t('core.modals.addCore')}
       width="500px"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>取消</Button>
-          <Button onClick={onSave} loading={savingCore}>保存</Button>
+          <Button variant="secondary" onClick={onClose}>{t('common.actions.cancel')}</Button>
+          <Button onClick={onSave} loading={savingCore}>{t('common.actions.save')}</Button>
         </>
       }
     >
       <div className="space-y-4">
-        <FormItem label="内核名称" required>
+        <FormItem label={t('core.coreName')} required>
           <Input
             value={coreForm.coreName}
             onChange={(event) => onCoreFormChange({ coreName: event.target.value })}
             placeholder="Chrome 142"
           />
         </FormItem>
-        <FormItem label="内核路径" required>
+        <FormItem label={t('core.corePath')} required>
           <div className="flex gap-2">
             <Input
               value={coreForm.corePath}
               onChange={(event) => onCoreFormChange({ corePath: event.target.value })}
-              placeholder="chrome 或 D:/browsers/chrome-120"
+              placeholder={t('browserList.settingsModal.corePathPlaceholder')}
               className="flex-1"
             />
-            <Button variant="secondary" onClick={onValidate}>验证</Button>
+            <Button variant="secondary" onClick={onValidate}>{t('browserList.actions.validate')}</Button>
           </div>
           {coreValidation && (
             <div className={`flex items-center gap-1 mt-1 text-sm ${coreValidation.valid ? 'text-green-600' : 'text-red-600'}`}>

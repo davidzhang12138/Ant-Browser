@@ -1,6 +1,7 @@
 import { Check, Monitor } from 'lucide-react'
 import clsx from 'clsx'
 import { useTheme, themeConfigs, ThemeType } from '../theme'
+import { useI18n } from '../i18n'
 
 interface ThemeSwitcherProps {
   className?: string
@@ -17,6 +18,18 @@ const themePreview: Record<ThemeType, { bg: string; sidebar: string; accent: str
 
 export function ThemeSwitcher({ className }: ThemeSwitcherProps) {
   const { theme, resolvedTheme, setTheme } = useTheme()
+  const { t } = useI18n()
+
+  const translateWithFallback = (key: string, fallback: string) => {
+    const translated = t(key)
+    return translated === key ? fallback : translated
+  }
+
+  const getThemeName = (config: (typeof themeConfigs)[number]) =>
+    translateWithFallback(`theme.${config.id}`, config.name.replace('主题', ''))
+
+  const getThemeDescription = (config: (typeof themeConfigs)[number]) =>
+    translateWithFallback(`theme.descriptions.${config.id}`, config.description)
 
   const renderPreview = (themeId: ThemeType, preview: typeof themePreview[ThemeType]) => {
     if (themeId === 'system') {
@@ -80,6 +93,8 @@ export function ThemeSwitcher({ className }: ThemeSwitcherProps) {
         {themeConfigs.map((config) => {
           const isActive = theme === config.id
           const preview = themePreview[config.id]
+          const themeName = getThemeName(config)
+          const themeDescription = getThemeDescription(config)
           
           return (
             <button
@@ -91,7 +106,7 @@ export function ThemeSwitcher({ className }: ThemeSwitcherProps) {
                   ? 'border-[var(--color-accent)] bg-[var(--color-accent-muted)]'
                   : 'border-[var(--color-border-default)] hover:border-[var(--color-border-strong)] bg-[var(--color-bg-surface)]'
               )}
-              title={config.description}
+              title={themeDescription}
             >
               {/* 主题预览 - 模拟界面布局 */}
               {renderPreview(config.id, preview)}
@@ -101,7 +116,7 @@ export function ThemeSwitcher({ className }: ThemeSwitcherProps) {
                 'text-xs font-medium transition-colors',
                 isActive ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'
               )}>
-                {config.name.replace('主题', '')}
+                {themeName}
               </span>
               
               {/* 选中标记 */}
@@ -117,8 +132,14 @@ export function ThemeSwitcher({ className }: ThemeSwitcherProps) {
       
       {/* 当前主题描述 */}
       <p className="text-xs text-[var(--color-text-muted)] text-center">
-        {themeConfigs.find(c => c.id === theme)?.description}
-        {theme === 'system' ? `，当前为${resolvedTheme === 'dark' ? '深色' : '浅色'}` : ''}
+        {(() => {
+          const activeConfig = themeConfigs.find(c => c.id === theme)
+          if (!activeConfig) return null
+          const description = getThemeDescription(activeConfig)
+          if (theme !== 'system') return description
+          const resolvedThemeName = t(`theme.${resolvedTheme}`)
+          return `${description}${t('theme.systemResolved').replace('{theme}', resolvedThemeName)}`
+        })()}
       </p>
     </div>
   )

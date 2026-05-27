@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Copy, Key, Play, RotateCcw, Settings, Square
 
 import { Badge, Button, Card, Table } from '../../../shared/components'
 import type { SortOrder, SorterResult, TableColumn } from '../../../shared/components/Table'
+import { useI18n } from '../../../shared/i18n'
 
 import type { BrowserCore, BrowserGroupWithCount, BrowserProfile, BrowserProxy } from '../types'
 import type { BrowserViewMode } from './BrowserListLayout'
@@ -59,13 +60,13 @@ interface BrowserProfilesPanelProps {
   onDelete: (profileId: string) => void
 }
 
-const formatTime = (value?: string) => {
+const formatTime = (value: string | undefined, locale: string) => {
   if (!value) return '-'
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('zh-CN')
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString(locale)
 }
 
-function formatProxyLabel(profile: BrowserProfile, proxy?: BrowserProxy): string {
+function formatProxyLabel(profile: BrowserProfile, proxy: BrowserProxy | undefined, t: (key: string) => string): string {
   if (proxy?.proxyName) {
     return proxy.proxyName
   }
@@ -74,7 +75,7 @@ function formatProxyLabel(profile: BrowserProfile, proxy?: BrowserProxy): string
   }
   const customProxy = (profile.proxyConfig || '').trim()
   if (customProxy) {
-    return `自定义: ${customProxy}`
+    return `${t('browserList.cards.customProxy')}: ${customProxy}`
   }
   return '-'
 }
@@ -89,14 +90,15 @@ function hasProxyConfig(profile: BrowserProfile, proxy?: BrowserProxy) {
 }
 
 function ProxyTestStatus({ state }: { state?: ProfileProxyTestState }) {
+  const { t } = useI18n()
   if (!state) return null
   if (state.loading) {
-    return <span className="text-[11px] text-[var(--color-text-muted)] animate-pulse">检测中</span>
+    return <span className="text-[11px] text-[var(--color-text-muted)] animate-pulse">{t('proxy.checking')}</span>
   }
   if (state.ok) {
     return <span className="text-[11px] font-medium text-[var(--color-success)]">{state.latencyMs || 0} ms</span>
   }
-  return <span className="text-[11px] font-medium text-[var(--color-error)]" title={state.error || '检测失败'}>失败</span>
+  return <span className="text-[11px] font-medium text-[var(--color-error)]" title={state.error || t('browserList.proxyTestFailed')}>{t('proxy.failure')}</span>
 }
 
 function BrowserProfileCard({
@@ -140,6 +142,8 @@ function BrowserProfileCard({
   onOpenCopy: (profile: BrowserProfile) => void
   onDelete: (profileId: string) => void
 }) {
+  const { t, language } = useI18n()
+  const proxyLabel = formatProxyLabel(profile, proxy, t)
   return (
     <div
       className={`flex flex-col border rounded-xl bg-[var(--color-bg-surface)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.08)] transition-all duration-200 h-[320px] overflow-hidden
@@ -161,7 +165,7 @@ function BrowserProfileCard({
             <span
               className="max-w-[180px] truncate rounded bg-[var(--color-bg-muted)] px-2 py-0.5 text-xs font-medium text-[var(--color-text-muted)]"
             >
-              序号 {serialNumber}
+              {t('browserList.columns.serial')} {serialNumber}
             </span>
             {profile.tags && profile.tags.length > 0 && (
               <div className="flex gap-1 ml-1">
@@ -177,42 +181,42 @@ function BrowserProfileCard({
 
         <div className="flex items-center gap-1 flex-wrap">
           {profile.running ? (
-            <Button size="sm" variant="secondary" onClick={() => onStop(profile.profileId)} title={isStopping ? '停止中' : '停止'} loading={isStopping}>
+            <Button size="sm" variant="secondary" onClick={() => onStop(profile.profileId)} title={isStopping ? t('browserList.status.stopping') : t('browserList.actions.stop')} loading={isStopping}>
               {!isStopping && <Square className="w-4 h-4 mr-1.5" />}
-              {isStopping ? '停止中' : '停止'}
+              {isStopping ? t('browserList.status.stopping') : t('browserList.actions.stop')}
             </Button>
           ) : (
-            <Button size="sm" onClick={() => onStart(profile.profileId)} title={isStarting ? '启动中' : '启动'} loading={isStarting}>
+            <Button size="sm" onClick={() => onStart(profile.profileId)} title={isStarting ? t('browserList.status.launching') : t('browserList.actions.launch')} loading={isStarting}>
               {!isStarting && <Play className="w-4 h-4 fill-current mr-1.5" />}
-              {isStarting ? '启动中' : '启动'}
+              {isStarting ? t('browserList.status.launching') : t('browserList.actions.launch')}
             </Button>
           )}
           <span className="w-px h-4 bg-[var(--color-border-muted)] mx-1"></span>
-          <Button size="sm" variant="ghost" onClick={() => onRestart(profile.profileId)} title="重启" className="px-3" disabled={isBusy}><RotateCcw className="w-4 h-4 mr-1.5" />重启</Button>
-          <Button size="sm" variant="ghost" onClick={() => onOpenKeywords(profile)} title="关键字管理" className="px-3" disabled={isBusy}><Key className="w-4 h-4 mr-1.5" />关键字</Button>
-          <Link to={`/browser/edit/${profile.profileId}`}><Button size="sm" variant="ghost" title="配置" className="px-3" disabled={isBusy}><Settings className="w-4 h-4 mr-1.5" />配置</Button></Link>
-          <Button size="sm" variant="ghost" onClick={() => onOpenCopy(profile)} title="克隆" className="px-3" disabled={isBusy}><Copy className="w-4 h-4 mr-1.5" />克隆</Button>
-          <Button size="sm" variant="ghost" onClick={() => onDelete(profile.profileId)} title="删除" className="px-3 text-red-500 hover:text-red-600 hover:bg-red-50" disabled={isBusy}><Trash2 className="w-4 h-4 mr-1.5" />删除</Button>
+          <Button size="sm" variant="ghost" onClick={() => onRestart(profile.profileId)} title={t('browserList.actions.restart')} className="px-3" disabled={isBusy}><RotateCcw className="w-4 h-4 mr-1.5" />{t('browserList.actions.restart')}</Button>
+          <Button size="sm" variant="ghost" onClick={() => onOpenKeywords(profile)} title={t('browserList.actions.keywordManagement')} className="px-3" disabled={isBusy}><Key className="w-4 h-4 mr-1.5" />{t('browserList.actions.keywords')}</Button>
+          <Link to={`/browser/edit/${profile.profileId}`}><Button size="sm" variant="ghost" title={t('browserList.actions.configure')} className="px-3" disabled={isBusy}><Settings className="w-4 h-4 mr-1.5" />{t('browserList.actions.configure')}</Button></Link>
+          <Button size="sm" variant="ghost" onClick={() => onOpenCopy(profile)} title={t('browserList.actions.clone')} className="px-3" disabled={isBusy}><Copy className="w-4 h-4 mr-1.5" />{t('browserList.actions.clone')}</Button>
+          <Button size="sm" variant="ghost" onClick={() => onDelete(profile.profileId)} title={t('common.actions.delete')} className="px-3 text-red-500 hover:text-red-600 hover:bg-red-50" disabled={isBusy}><Trash2 className="w-4 h-4 mr-1.5" />{t('common.actions.delete')}</Button>
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-2 shrink-0">
         <div className="flex flex-col gap-0.5">
-          <span className="text-xs text-[var(--color-text-muted)] font-medium">内核版本</span>
+          <span className="text-xs text-[var(--color-text-muted)] font-medium">{t('browserList.columns.coreVersion')}</span>
           <span className="text-xs text-[var(--color-text-primary)]">{coreLabel}</span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="text-xs text-[var(--color-text-muted)] font-medium">代理配置</span>
+          <span className="text-xs text-[var(--color-text-muted)] font-medium">{t('browserList.columns.proxyConfig')}</span>
           <div className="flex min-w-0 items-center gap-1.5">
-            <span className="min-w-0 flex-1 truncate text-xs text-[var(--color-text-primary)]" title={formatProxyLabel(profile, proxy)}>
-              {formatProxyLabel(profile, proxy)}
+            <span className="min-w-0 flex-1 truncate text-xs text-[var(--color-text-primary)]" title={proxyLabel}>
+              {proxyLabel}
             </span>
             <button
               type="button"
               className="shrink-0 rounded p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-40"
               onClick={() => onTestProxy(profile)}
               disabled={proxyTestState?.loading || !hasProxyConfig(profile, proxy) || isDirectProxy(profile, proxy)}
-              title={isDirectProxy(profile, proxy) ? '直连无需检测' : '检测代理可用性'}
+              title={isDirectProxy(profile, proxy) ? t('browserList.directProxyNoTest') : t('browserList.cards.proxyTestTitle')}
             >
               <Wifi className="h-3.5 w-3.5" />
             </button>
@@ -220,18 +224,18 @@ function BrowserProfileCard({
           <ProxyTestStatus state={proxyTestState} />
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="text-xs text-[var(--color-text-muted)] font-medium">分组</span>
+          <span className="text-xs text-[var(--color-text-muted)] font-medium">{t('browserList.columns.group')}</span>
           <span className="text-xs text-[var(--color-text-primary)] truncate" title={groupLabel}>{groupLabel}</span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="text-xs text-[var(--color-text-muted)] font-medium">时间</span>
-          <span className="text-xs text-[var(--color-text-primary)]">创建 {formatTime(profile.createdAt)}</span>
-          <span className="text-xs text-[var(--color-text-secondary)]">打开 {formatTime(profile.lastStartAt)}</span>
+          <span className="text-xs text-[var(--color-text-muted)] font-medium">{t('browserList.columns.time')}</span>
+          <span className="text-xs text-[var(--color-text-primary)]">{t('browserList.cards.created')} {formatTime(profile.createdAt, language)}</span>
+          <span className="text-xs text-[var(--color-text-secondary)]">{t('browserList.cards.opened')} {formatTime(profile.lastStartAt, language)}</span>
         </div>
       </div>
 
       <div className="border-t border-[var(--color-border-muted)]/50 pt-2 flex items-start gap-2 flex-1 min-h-0">
-        <span className="text-xs font-medium text-[var(--color-text-primary)] shrink-0 pt-0.5">系统关键字</span>
+        <span className="text-xs font-medium text-[var(--color-text-primary)] shrink-0 pt-0.5">{t('browserList.columns.systemKeywords')}</span>
         <div className="flex-1 min-h-0 overflow-y-auto pr-1">
           <KeywordInlineRow keywords={profile.keywords || []} />
         </div>
@@ -274,6 +278,7 @@ export function BrowserProfilesPanel({
   onOpenCopy,
   onDelete,
 }: BrowserProfilesPanelProps) {
+  const { t, language } = useI18n()
   const tableScrollRef = useRef<HTMLDivElement | null>(null)
   const didRestoreTableScrollRef = useRef(false)
   const allSelected = totalCount > 0 && selectedIds.size === totalCount
@@ -281,7 +286,7 @@ export function BrowserProfilesPanel({
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
   const groupNameById = new Map(groups.map(group => [group.groupId, group.groupName]))
   const getGroupLabel = (profile: BrowserProfile) => {
-    if (!profile.groupId) return '未分组'
+    if (!profile.groupId) return t('browserList.filters.ungrouped')
     return groupNameById.get(profile.groupId) || profile.groupId
   }
 
@@ -319,7 +324,7 @@ export function BrowserProfilesPanel({
     },
     {
       key: 'serial',
-      title: '序号',
+      title: t('browserList.columns.serial'),
       width: 76,
       sortable: true,
       render: (_, record) => (
@@ -330,7 +335,7 @@ export function BrowserProfilesPanel({
     },
     {
       key: 'profileName',
-      title: '实例名称',
+      title: t('browserList.columns.profileName'),
       width: 180,
       render: (value, record) => (
         <div className="flex flex-col gap-1">
@@ -347,7 +352,7 @@ export function BrowserProfilesPanel({
     },
     {
       key: 'running',
-      title: '状态',
+      title: t('browserList.columns.status'),
       width: 92,
       render: (_, record) => {
         const status = getProfileStatus(record)
@@ -356,7 +361,7 @@ export function BrowserProfilesPanel({
     },
     {
       key: 'groupId',
-      title: '分组',
+      title: t('browserList.columns.group'),
       width: 120,
       render: (_, record) => (
         <span className="whitespace-nowrap text-xs text-[var(--color-text-primary)]" title={getGroupLabel(record)}>
@@ -366,13 +371,13 @@ export function BrowserProfilesPanel({
     },
     {
       key: 'coreId',
-      title: '核心',
+      title: t('browserList.columns.core'),
       width: 110,
       render: (_, record) => <span className="whitespace-nowrap text-xs">{getProfileCoreLabel(record)}</span>,
     },
     {
       key: 'proxyId',
-      title: '代理',
+      title: t('browserList.columns.proxy'),
       width: 190,
       render: (value, record) => {
         const proxy = proxies.find(item => item.proxyId === value)
@@ -380,8 +385,8 @@ export function BrowserProfilesPanel({
         return (
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex min-w-0 items-center gap-1.5">
-              <span className="min-w-0 flex-1 truncate whitespace-nowrap text-xs" title={formatProxyLabel(record, proxy)}>
-                {formatProxyLabel(record, proxy)}
+              <span className="min-w-0 flex-1 truncate whitespace-nowrap text-xs" title={formatProxyLabel(record, proxy, t)}>
+                {formatProxyLabel(record, proxy, t)}
               </span>
               <button
                 type="button"
@@ -391,7 +396,7 @@ export function BrowserProfilesPanel({
                   onTestProxy(record)
                 }}
                 disabled={state?.loading || !hasProxyConfig(record, proxy) || isDirectProxy(record, proxy)}
-                title={isDirectProxy(record, proxy) ? '直连无需检测' : '检测代理可用性'}
+                title={isDirectProxy(record, proxy) ? t('browserList.directProxyNoTest') : t('browserList.cards.proxyTestTitle')}
               >
                 <Wifi className="h-3.5 w-3.5" />
               </button>
@@ -403,31 +408,31 @@ export function BrowserProfilesPanel({
     },
     {
       key: 'keywords',
-      title: '关键字',
+      title: t('browserList.columns.keywords'),
       width: 200,
       render: (value) => <KeywordInlineRow keywords={value || []} />,
     },
     {
       key: 'createdAt',
-      title: '创建时间',
+      title: t('browserList.columns.createdAt'),
       width: 168,
       sortable: true,
       render: (value) => (
-        <span className="whitespace-nowrap text-xs text-[var(--color-text-secondary)]">{formatTime(value)}</span>
+        <span className="whitespace-nowrap text-xs text-[var(--color-text-secondary)]">{formatTime(value, language)}</span>
       ),
     },
     {
       key: 'lastStartAt',
-      title: '最后打开时间',
+      title: t('browserList.columns.lastStartAt'),
       width: 176,
       sortable: true,
       render: (value) => (
-        <span className="whitespace-nowrap text-xs text-[var(--color-text-primary)]">{formatTime(value)}</span>
+        <span className="whitespace-nowrap text-xs text-[var(--color-text-primary)]">{formatTime(value, language)}</span>
       ),
     },
     {
       key: 'actions',
-      title: '操作',
+      title: t('browserList.columns.actions'),
       align: 'right',
       width: 220,
       render: (_, record) => {
@@ -438,19 +443,19 @@ export function BrowserProfilesPanel({
         return (
           <div className="flex justify-end gap-1">
             {record.running ? (
-              <Button size="sm" variant="secondary" onClick={() => onStop(record.profileId)} title="停止" loading={isStopping}>
+              <Button size="sm" variant="secondary" onClick={() => onStop(record.profileId)} title={t('browserList.actions.stop')} loading={isStopping}>
                 {!isStopping && <Square className="w-3.5 h-3.5" />}
               </Button>
             ) : (
-              <Button size="sm" onClick={() => onStart(record.profileId)} title="启动" loading={isStarting}>
+              <Button size="sm" onClick={() => onStart(record.profileId)} title={t('browserList.actions.launch')} loading={isStarting}>
                 {!isStarting && <Play className="w-3.5 h-3.5 fill-current" />}
               </Button>
             )}
-            <Button size="sm" variant="ghost" onClick={() => onRestart(record.profileId)} title="重启" disabled={isBusy}><RotateCcw className="w-3.5 h-3.5" /></Button>
-            <Button size="sm" variant="ghost" onClick={() => onOpenKeywords(record)} title="关键字" disabled={isBusy}><Key className="w-3.5 h-3.5" /></Button>
-            <Link to={`/browser/edit/${record.profileId}`}><Button size="sm" variant="ghost" title="配置" disabled={isBusy}><Settings className="w-3.5 h-3.5" /></Button></Link>
-            <Button size="sm" variant="ghost" onClick={() => onOpenCopy(record)} title="克隆" disabled={isBusy}><Copy className="w-3.5 h-3.5" /></Button>
-            <Button size="sm" variant="ghost" onClick={() => onDelete(record.profileId)} title="删除" disabled={isBusy}><Trash2 className="w-3.5 h-3.5 text-red-500" /></Button>
+            <Button size="sm" variant="ghost" onClick={() => onRestart(record.profileId)} title={t('browserList.actions.restart')} disabled={isBusy}><RotateCcw className="w-3.5 h-3.5" /></Button>
+            <Button size="sm" variant="ghost" onClick={() => onOpenKeywords(record)} title={t('browserList.actions.keywords')} disabled={isBusy}><Key className="w-3.5 h-3.5" /></Button>
+            <Link to={`/browser/edit/${record.profileId}`}><Button size="sm" variant="ghost" title={t('browserList.actions.configure')} disabled={isBusy}><Settings className="w-3.5 h-3.5" /></Button></Link>
+            <Button size="sm" variant="ghost" onClick={() => onOpenCopy(record)} title={t('browserList.actions.clone')} disabled={isBusy}><Copy className="w-3.5 h-3.5" /></Button>
+            <Button size="sm" variant="ghost" onClick={() => onDelete(record.profileId)} title={t('common.actions.delete')} disabled={isBusy}><Trash2 className="w-3.5 h-3.5 text-red-500" /></Button>
           </div>
         )
       },
@@ -473,9 +478,9 @@ export function BrowserProfilesPanel({
     <Card padding="none">
       <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
         {loading ? (
-          <div className="py-16 flex items-center justify-center text-sm text-[var(--color-text-muted)]">加载中...</div>
+          <div className="py-16 flex items-center justify-center text-sm text-[var(--color-text-muted)]">{t('common.loading')}</div>
         ) : profiles.length === 0 ? (
-          <div className="py-16 flex items-center justify-center text-sm text-[var(--color-text-muted)]">暂无数据</div>
+          <div className="py-16 flex items-center justify-center text-sm text-[var(--color-text-muted)]">{t('common.empty')}</div>
         ) : viewMode === 'table' ? (
           <Table
             columns={columns}
@@ -546,6 +551,7 @@ function PaginationBar({
   onPageChange: (page: number) => void
   onPageSizeChange: (pageSize: number) => void
 }) {
+  const { t } = useI18n()
   const pages = buildVisiblePages(currentPage, totalPages)
   const canPrev = currentPage > 1
   const canNext = currentPage < totalPages
@@ -553,14 +559,14 @@ function PaginationBar({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border-muted)] bg-[var(--color-bg-surface)] px-4 py-3 text-sm text-[var(--color-text-secondary)]">
       <div className="flex items-center gap-3">
-        <span>共 {totalCount} 条</span>
+        <span>{t('browserList.pagination.totalPrefix')} {totalCount} {t('browserList.pagination.totalSuffix')}</span>
         <select
           className="h-8 rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
           value={pageSize}
           onChange={(event) => onPageSizeChange(Number(event.target.value))}
         >
           {[10, 20, 50, 100].map((size) => (
-            <option key={size} value={size}>{size}条/页</option>
+            <option key={size} value={size}>{size}{t('browserList.pagination.pageSizeSuffix')}</option>
           ))}
         </select>
       </div>
@@ -571,7 +577,7 @@ function PaginationBar({
           className="flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-border-default)] hover:text-[var(--color-text-primary)] disabled:cursor-not-allowed disabled:opacity-40"
           disabled={!canPrev}
           onClick={() => canPrev && onPageChange(currentPage - 1)}
-          title="上一页"
+          title={t('browserList.pagination.previous')}
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -600,7 +606,7 @@ function PaginationBar({
           className="flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[var(--color-text-muted)] transition-colors hover:border-[var(--color-border-default)] hover:text-[var(--color-text-primary)] disabled:cursor-not-allowed disabled:opacity-40"
           disabled={!canNext}
           onClick={() => canNext && onPageChange(currentPage + 1)}
-          title="下一页"
+          title={t('browserList.pagination.next')}
         >
           <ChevronRight className="h-4 w-4" />
         </button>

@@ -7,6 +7,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { ThemeProvider } from "./shared/theme";
+import { LanguageProvider } from "./shared/i18n";
 import { Layout } from "./shared/layout";
 import { ToastContainer, Modal, Button, Loading, toast } from "./shared/components";
 import { AlertCircle } from "lucide-react";
@@ -413,66 +414,68 @@ function App() {
 
   return (
     <ThemeProvider>
-      <Router>
-        <Layout>
-          <Suspense fallback={routeFallback}>
-            <Routes>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/charts" element={<ChartsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/admin/keygen" element={<AdminKeygenPage />} />
-              <Route path="/browser/list" element={<BrowserListPage />} />
-              <Route
-                path="/browser/detail/:id"
-                element={<BrowserDetailPage />}
+      <LanguageProvider>
+        <Router>
+          <Layout>
+            <Suspense fallback={routeFallback}>
+              <Routes>
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/charts" element={<ChartsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/admin/keygen" element={<AdminKeygenPage />} />
+                <Route path="/browser/list" element={<BrowserListPage />} />
+                <Route
+                  path="/browser/detail/:id"
+                  element={<BrowserDetailPage />}
+                />
+                <Route path="/browser/edit/:id" element={<BrowserEditPage />} />
+                <Route path="/browser/copy/:id" element={<BrowserCopyPage />} />
+                <Route
+                  path="/browser/monitor"
+                  element={<Navigate to="/browser/list" replace />}
+                />
+                <Route path="/browser/logs" element={<BrowserLogsPage />} />
+                <Route path="/browser/proxy-pool" element={<ProxyPoolPage />} />
+                <Route path="/browser/cores" element={<CoreManagementPage />} />
+                <Route
+                  path="/browser/bookmarks"
+                  element={<BookmarkSettingsPage />}
+                />
+                <Route path="/browser/automation" element={<AutomationPage />} />
+                <Route
+                  path="/browser/automation/:scriptId"
+                  element={<AutomationScriptDetailPage />}
+                />
+                <Route
+                  path="/system/docs"
+                  element={<LaunchApiDocsPage />}
+                />
+                <Route
+                  path="/browser/launch-api"
+                  element={<Navigate to="/system/docs" replace />}
+                />
+                <Route path="/browser/tags" element={<TagManagementPage />} />
+                <Route path="/browser/groups" element={<GroupManagementPage />} />
+                <Route
+                  path="/system/tutorial"
+                  element={<Navigate to="/system/docs" replace />}
+                />
+              </Routes>
+            </Suspense>
+          </Layout>
+          <ToastContainer />
+          <CloseConfirmModal />
+          <Suspense fallback={null}>
+            {quickLaunchOpen ? (
+              <QuickLaunchModal
+                open={quickLaunchOpen}
+                onClose={() => setQuickLaunchOpen(false)}
               />
-              <Route path="/browser/edit/:id" element={<BrowserEditPage />} />
-              <Route path="/browser/copy/:id" element={<BrowserCopyPage />} />
-              <Route
-                path="/browser/monitor"
-                element={<Navigate to="/browser/list" replace />}
-              />
-              <Route path="/browser/logs" element={<BrowserLogsPage />} />
-              <Route path="/browser/proxy-pool" element={<ProxyPoolPage />} />
-              <Route path="/browser/cores" element={<CoreManagementPage />} />
-              <Route
-                path="/browser/bookmarks"
-                element={<BookmarkSettingsPage />}
-              />
-              <Route path="/browser/automation" element={<AutomationPage />} />
-              <Route
-                path="/browser/automation/:scriptId"
-                element={<AutomationScriptDetailPage />}
-              />
-              <Route
-                path="/system/docs"
-                element={<LaunchApiDocsPage />}
-              />
-              <Route
-                path="/browser/launch-api"
-                element={<Navigate to="/system/docs" replace />}
-              />
-              <Route path="/browser/tags" element={<TagManagementPage />} />
-              <Route path="/browser/groups" element={<GroupManagementPage />} />
-              <Route
-                path="/system/tutorial"
-                element={<Navigate to="/system/docs" replace />}
-              />
-            </Routes>
+            ) : null}
           </Suspense>
-        </Layout>
-        <ToastContainer />
-        <CloseConfirmModal />
-        <Suspense fallback={null}>
-          {quickLaunchOpen ? (
-            <QuickLaunchModal
-              open={quickLaunchOpen}
-              onClose={() => setQuickLaunchOpen(false)}
-            />
-          ) : null}
-        </Suspense>
-      </Router>
+        </Router>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

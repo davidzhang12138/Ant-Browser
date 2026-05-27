@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, Filter, X } from 'lucide-react'
 import { Input, Select } from '../../../shared/components'
+import { useI18n } from '../../../shared/i18n'
 import { TagFilterBar } from './TagFilterBar'
 import type { BrowserCore, BrowserProxy, BrowserGroupWithCount } from '../types'
 
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export function InstanceFilterBar({ filters, onChange, proxies, cores, allTags, groups }: Props) {
+  const { t } = useI18n()
   const [collapsed, setCollapsed] = useState(false)
 
   const set = <K extends keyof InstanceFilters>(key: K, value: InstanceFilters[K]) =>
@@ -54,7 +56,7 @@ export function InstanceFilterBar({ filters, onChange, proxies, cores, allTags, 
       >
         {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         <Filter className="w-3.5 h-3.5" />
-        <span>筛选</span>
+        <span>{t('browserList.filters.title')}</span>
         {collapsed && activeCount > 0 && (
           <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium bg-[var(--color-accent)]/10 text-[var(--color-accent)] rounded-full">
             {activeCount}
@@ -68,16 +70,16 @@ export function InstanceFilterBar({ filters, onChange, proxies, cores, allTags, 
             <Input
               value={filters.keyword}
               onChange={e => set('keyword', e.target.value)}
-              placeholder="搜索名称..."
+              placeholder={t('browserList.filters.keywordPlaceholder')}
               style={{ width: '180px' }}
             />
             <Select
               value={filters.status}
               onChange={e => set('status', e.target.value as InstanceFilters['status'])}
               options={[
-                { value: '', label: '全部状态' },
-                { value: 'running', label: '运行中' },
-                { value: 'stopped', label: '已停止' },
+                { value: '', label: t('browserList.filters.allStatus') },
+                { value: 'running', label: t('browserList.status.running') },
+                { value: 'stopped', label: t('browserList.status.stopped') },
               ]}
               style={{ width: '120px' }}
             />
@@ -85,8 +87,8 @@ export function InstanceFilterBar({ filters, onChange, proxies, cores, allTags, 
               value={filters.proxyId}
               onChange={e => set('proxyId', e.target.value)}
               options={[
-                { value: '', label: '全部代理' },
-                { value: '__none__', label: '无代理' },
+                { value: '', label: t('browserList.filters.allProxy') },
+                { value: '__none__', label: t('browserList.filters.noneProxy') },
                 ...proxies.map(p => ({ value: p.proxyId, label: p.proxyName || p.proxyId })),
               ]}
               style={{ width: '150px' }}
@@ -95,7 +97,7 @@ export function InstanceFilterBar({ filters, onChange, proxies, cores, allTags, 
               value={filters.coreId}
               onChange={e => set('coreId', e.target.value)}
               options={[
-                { value: '', label: '全部内核' },
+                { value: '', label: t('browserList.filters.allCore') },
                 ...cores.map(c => ({ value: c.coreId, label: c.coreName })),
               ]}
               style={{ width: '140px' }}
@@ -104,8 +106,8 @@ export function InstanceFilterBar({ filters, onChange, proxies, cores, allTags, 
               value={filters.groupId}
               onChange={e => set('groupId', e.target.value)}
               options={[
-                { value: '', label: '全部分组' },
-                { value: '__ungrouped__', label: '未分组' },
+                { value: '', label: t('browserList.filters.allGroup') },
+                { value: '__ungrouped__', label: t('browserList.filters.ungrouped') },
                 ...groups.map(g => ({ value: g.groupId, label: g.groupName })),
               ]}
               style={{ width: '140px' }}
@@ -113,7 +115,7 @@ export function InstanceFilterBar({ filters, onChange, proxies, cores, allTags, 
             <Input
               value={filters.kwSearch}
               onChange={e => set('kwSearch', e.target.value)}
-              placeholder="搜索关键字值..."
+              placeholder={t('browserList.filters.keywordValuePlaceholder')}
               className="flex-1 min-w-[160px]"
             />
             {hasFilter && (
@@ -122,7 +124,7 @@ export function InstanceFilterBar({ filters, onChange, proxies, cores, allTags, 
                 className="flex items-center gap-1 px-2 py-1 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-error)] hover:bg-[var(--color-bg-muted)] rounded transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
-                清除
+                {t('browserList.filters.clear')}
               </button>
             )}
           </div>

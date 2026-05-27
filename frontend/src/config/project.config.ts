@@ -15,40 +15,45 @@ export const projectConfig = {
 // 导航菜单配置
 export interface NavItem {
   name: string
+  labelKey: string
   path: string
   icon: string
 }
 
 export interface NavSection {
   title: string
+  labelKey: string
   items: NavItem[]
 }
 
 export const navigationConfig: NavSection[] = [
   {
     title: '主菜单',
+    labelKey: 'nav.sections.main',
     items: [
-      { name: '控制台', path: '/', icon: 'LayoutDashboard' },
+      { name: '控制台', labelKey: 'nav.dashboard', path: '/', icon: 'LayoutDashboard' },
     ]
   },
   {
     title: '指纹浏览器',
+    labelKey: 'nav.sections.browser',
     items: [
-      { name: '实例列表', path: '/browser/list', icon: 'Monitor' },
-      { name: '自动化脚本', path: '/browser/automation', icon: 'Bot' },
-      { name: '内核管理', path: '/browser/cores', icon: 'Cpu' },
-      { name: '代理池配置', path: '/browser/proxy-pool', icon: 'Globe' },
-      { name: '默认书签', path: '/browser/bookmarks', icon: 'Bookmark' },
-      { name: '分组管理', path: '/browser/groups', icon: 'Layers' },
-      { name: '标签管理', path: '/browser/tags', icon: 'Tag' },
+      { name: '实例列表', labelKey: 'nav.browserList', path: '/browser/list', icon: 'Monitor' },
+      { name: '自动化脚本', labelKey: 'nav.automation', path: '/browser/automation', icon: 'Bot' },
+      { name: '内核管理', labelKey: 'nav.cores', path: '/browser/cores', icon: 'Cpu' },
+      { name: '代理池配置', labelKey: 'nav.proxyPool', path: '/browser/proxy-pool', icon: 'Globe' },
+      { name: '默认书签', labelKey: 'nav.bookmarks', path: '/browser/bookmarks', icon: 'Bookmark' },
+      { name: '分组管理', labelKey: 'nav.groups', path: '/browser/groups', icon: 'Layers' },
+      { name: '标签管理', labelKey: 'nav.tags', path: '/browser/tags', icon: 'Tag' },
     ]
   },
   {
     title: '系统维护',
+    labelKey: 'nav.sections.system',
     items: [
-      { name: '系统设置', path: '/settings', icon: 'Settings' },
-      { name: '文档中心', path: '/system/docs', icon: 'BookOpen' },
-      { name: '日志查看', path: '/browser/logs', icon: 'FileText' },
+      { name: '系统设置', labelKey: 'nav.settings', path: '/settings', icon: 'Settings' },
+      { name: '文档中心', labelKey: 'nav.docs', path: '/system/docs', icon: 'BookOpen' },
+      { name: '日志查看', labelKey: 'nav.logs', path: '/browser/logs', icon: 'FileText' },
     ]
   },
 ]

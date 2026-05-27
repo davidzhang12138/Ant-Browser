@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, ConfirmModal, FormItem, Input, Modal, Textarea, toast } from '../../../shared/components'
 import type { SortOrder } from '../../../shared/components/Table'
+import { useI18n } from '../../../shared/i18n'
 import type { BrowserProxy, ProxyCheckSettings, ProxyIPHealthResult } from '../types'
 import { createDefaultProxyCheckSettings, fetchBrowserProxies, fetchBrowserProxyGroups, saveBrowserProxies, browserProxyTestSpeed, browserProxyBatchTestSpeed, browserProxyCheckIPHealth, browserProxyBatchCheckIPHealth, fetchClashImportFromURL, fetchProxyCheckSettings, saveProxyCheckSettings, cleanupUnusedBrowserProxies } from '../api'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
@@ -57,6 +58,7 @@ import { ProxyPoolHeader } from './proxyPool/ProxyPoolHeader'
 import { ProxyPoolTableCard } from './proxyPool/ProxyPoolTableCard'
 
 export function ProxyPoolPage() {
+  const { t, language } = useI18n()
   const createInitialChainImportForm = (): ChainImportForm => ({
     ...INITIAL_CHAIN_IMPORT_FORM,
     first: { ...INITIAL_CHAIN_IMPORT_FORM.first },
@@ -242,10 +244,10 @@ export function ProxyPoolPage() {
     try {
       const targets = JSON.parse(checkTargetsText || '[]')
       await saveProxyCheckSettings({ ...checkSettings, targets })
-      toast.success('检测设置已保存')
+      toast.success(t('proxy.messages.settingsSaved'))
       setCheckSettingsOpen(false)
     } catch (error: any) {
-      toast.error(error?.message || '检测设置保存失败')
+      toast.error(error?.message || t('proxy.messages.settingsSaveFailed'))
     } finally {
       setSavingCheckSettings(false)
     }
@@ -281,7 +283,7 @@ export function ProxyPoolPage() {
       const result = await fetchClashImportFromURL(meta.sourceUrl)
       const parsed = parseClashImportText(result.content || '')
       if (!parsed.length) {
-        throw new Error('订阅内容未解析到可用代理')
+        throw new Error(t('proxy.messages.noParsedSubscription'))
       }
       const ignoredNameMap = readSourceIgnoredProxyNames()
       const sourceIgnoredNames = ignoredNameMap[sourceId] || []
@@ -303,12 +305,12 @@ export function ProxyPoolPage() {
 
       await saveProxies(merged)
       if (!silent) {
-        toast.success(`订阅刷新成功：${meta.sourceUrl}（${refreshedSourceProxies.length} 条）`)
+        toast.success(`${t('proxy.messages.refreshSuccess')}：${meta.sourceUrl}（${refreshedSourceProxies.length}）`)
       }
       return true
     } catch (error: any) {
       if (!silent) {
-        toast.error(error?.message || '订阅刷新失败')
+        toast.error(error?.message || t('proxy.messages.refreshFailed'))
       }
       return false
     } finally {
@@ -318,13 +320,13 @@ export function ProxyPoolPage() {
         return next
       })
     }
-  }, [globalAutoRefreshEnabled, globalRefreshInterval, saveProxies])
+  }, [globalAutoRefreshEnabled, globalRefreshInterval, saveProxies, t])
 
   const handleRefreshAllSources = useCallback(async (silent = false) => {
     const metas = collectURLImportSources(proxiesRef.current)
     if (metas.length === 0) {
       if (!silent) {
-        toast.info('当前没有 URL 导入订阅')
+        toast.info(t('proxy.messages.noUrlSubscriptions'))
       }
       return
     }
@@ -341,12 +343,12 @@ export function ProxyPoolPage() {
 
     if (!silent) {
       if (successCount === metas.length) {
-        toast.success(`订阅刷新完成：${successCount}/${metas.length}`)
+        toast.success(`${t('proxy.messages.refreshDone')}：${successCount}/${metas.length}`)
       } else {
-        toast.warning(`订阅刷新完成：成功 ${successCount}/${metas.length}`)
+        toast.warning(`${t('proxy.messages.refreshDone')}：${t('browserList.successCount')} ${successCount}/${metas.length}`)
       }
     }
-  }, [refreshSingleSource])
+  }, [refreshSingleSource, t])
 
   useEffect(() => {
     const runAutoRefresh = async () => {
@@ -402,7 +404,7 @@ export function ProxyPoolPage() {
     return [0, v] // 正常延迟
   }
 
-  const compareText = (a: string, b: string) => a.localeCompare(b, 'zh-CN')
+  const compareText = (a: string, b: string) => a.localeCompare(b, language)
 
   const compareByColumn = (a: ProxyDisplayInfo, b: ProxyDisplayInfo, column: string) => {
     switch (column) {
@@ -444,7 +446,7 @@ export function ProxyPoolPage() {
       const cmp = compareByColumn(a, b, sortColumn)
       return sortOrder === 'asc' ? cmp : -cmp
     })
-  }, [displayList, filterProtocol, filterKeyword, filterGroup, sortColumn, sortOrder, latencyMap])
+  }, [displayList, filterProtocol, filterKeyword, filterGroup, sortColumn, sortOrder, latencyMap, language])
 
   const allFilteredSelected = filteredList.length > 0 && filteredList.every(p => selectedIds.has(p.proxyId))
   const someFilteredSelected = filteredList.some(p => selectedIds.has(p.proxyId))
@@ -482,10 +484,10 @@ export function ProxyPoolPage() {
     try {
       const newProxies = proxies.filter(p => !selectedIds.has(p.proxyId))
       await saveProxies(newProxies)
-      toast.success(`已删除 ${selectedIds.size} 个代理`)
+      toast.success(`${t('proxy.messages.batchDeleted')} ${selectedIds.size} ${t('proxy.messages.proxiesCountSuffix')}`)
       setSelectedIds(new Set())
     } catch (error: any) {
-      toast.error(error?.message || '删除失败')
+      toast.error(error?.message || t('browserList.deleteFailed'))
     }
   }
 
@@ -496,12 +498,12 @@ export function ProxyPoolPage() {
       setSelectedIds(new Set())
       await loadProxies()
       if (result.deletedCount > 0) {
-        toast.success(`已清理 ${result.deletedCount} 个未使用代理`)
+        toast.success(`${t('proxy.messages.cleanupDone')} ${result.deletedCount}`)
       } else {
-        toast.info('没有可清理的未使用代理')
+        toast.info(t('proxy.messages.noUnused'))
       }
     } catch (error: any) {
-      toast.error(error?.message || '清理未使用代理失败')
+      toast.error(error?.message || t('proxy.messages.cleanupFailed'))
     } finally {
       setCleaningUnused(false)
     }
@@ -509,7 +511,7 @@ export function ProxyPoolPage() {
 
   const handleTestOne = async (record: ProxyDisplayInfo) => {
     if (record.proxyConfig === 'direct://') {
-      toast.info('直连模式无需测速')
+      toast.info(t('proxy.messages.directNoSpeedTest'))
       return
     }
     setLatencyMap(prev => ({ ...prev, [record.proxyId]: -1 }))
@@ -550,7 +552,7 @@ export function ProxyPoolPage() {
 
   const handleCheckOneIPHealth = async (record: ProxyDisplayInfo) => {
     if (record.proxyConfig === 'direct://') {
-      toast.info('直连模式无需检测')
+      toast.info(t('browserList.directProxyNoTest'))
       return
     }
     if (checkingIPHealthIds.has(record.proxyId)) return
@@ -560,7 +562,7 @@ export function ProxyPoolPage() {
       const result = await browserProxyCheckIPHealth(record.proxyId)
       setIPHealthMap(prev => ({ ...prev, [record.proxyId]: result }))
       if (!result.ok) {
-        toast.error(result.error || `${record.proxyName} 检测失败`)
+        toast.error(result.error || `${record.proxyName} ${t('proxy.failure')}`)
       }
     } finally {
       setCheckingIPHealthIds(prev => {
@@ -603,9 +605,9 @@ export function ProxyPoolPage() {
       })
       const failed = results.filter(r => !r.ok).length
       if (failed > 0) {
-        toast.info(`IP 健康检测完成：成功 ${results.length - failed}，失败 ${failed}`)
+        toast.info(`${t('proxy.messages.ipHealthDone')}：${t('browserList.successCount')} ${results.length - failed}，${t('browserList.failedCount')} ${failed}`)
       } else {
-        toast.success(`IP 健康检测完成：共 ${results.length} 条`)
+        toast.success(`${t('proxy.messages.ipHealthDone')}：${results.length}`)
       }
     } finally {
       off()
@@ -680,11 +682,11 @@ export function ProxyPoolPage() {
         nextProxyName = candidate.proxyName
         nextProxyConfig = candidate.proxyConfig
       } catch (error: any) {
-        toast.error(error?.message || '链式代理配置无效')
+        toast.error(error?.message || t('proxy.messages.chainInvalid'))
         return
       }
     } else if (!nextProxyName) {
-      toast.error('请输入代理名称')
+      toast.error(t('proxy.messages.proxyNameRequired'))
       return
     }
 
@@ -703,9 +705,9 @@ export function ProxyPoolPage() {
       )
       await saveProxies(newProxies)
       setEditModalOpen(false)
-      toast.success('代理已更新')
+      toast.success(t('proxy.messages.updated'))
     } catch (error: any) {
-      toast.error(error?.message || '保存失败')
+      toast.error(error?.message || t('proxy.messages.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -722,9 +724,9 @@ export function ProxyPoolPage() {
       const newProxies = proxies.filter(p => p.proxyId !== deletingId)
       await saveProxies(newProxies)
       setSelectedIds(prev => { const next = new Set(prev); next.delete(deletingId); return next })
-      toast.success('代理已删除')
+      toast.success(t('proxy.messages.deleted'))
     } catch (error: any) {
-      toast.error(error?.message || '删除失败')
+      toast.error(error?.message || t('browserList.deleteFailed'))
     }
     setDeletingId(null)
   }
@@ -749,24 +751,24 @@ export function ProxyPoolPage() {
   const handleCopyChainTemplate = async () => {
     try {
       if (!navigator?.clipboard?.writeText) {
-        throw new Error('当前环境不支持剪贴板')
+        throw new Error(t('proxy.messages.clipboardUnsupported'))
       }
       await navigator.clipboard.writeText(CHAIN_QUICK_IMPORT_TEMPLATE)
-      toast.success('JSON 模板已复制')
+      toast.success(t('proxy.messages.templateCopied'))
     } catch (error: any) {
-      toast.error(error?.message || '复制模板失败')
+      toast.error(error?.message || t('proxy.messages.copyTemplateFailed'))
     }
   }
 
   const handleCopyDirectTemplate = async () => {
     try {
       if (!navigator?.clipboard?.writeText) {
-        throw new Error('当前环境不支持剪贴板')
+        throw new Error(t('proxy.messages.clipboardUnsupported'))
       }
       await navigator.clipboard.writeText(DIRECT_QUICK_IMPORT_TEMPLATE)
-      toast.success('JSON 模板已复制')
+      toast.success(t('proxy.messages.templateCopied'))
     } catch (error: any) {
-      toast.error(error?.message || '复制模板失败')
+      toast.error(error?.message || t('proxy.messages.copyTemplateFailed'))
     }
   }
 
@@ -775,9 +777,9 @@ export function ProxyPoolPage() {
       const { form, groupName } = parseChainImportJSON(chainImportText)
       setChainImportForm(form)
       setImportGroupName(groupName)
-      toast.success('JSON 已应用')
+      toast.success(t('proxy.messages.jsonApplied'))
     } catch (error: any) {
-      toast.error(error?.message || 'JSON 应用失败')
+      toast.error(error?.message || t('proxy.messages.jsonApplyFailed'))
     }
   }
 
@@ -789,9 +791,9 @@ export function ProxyPoolPage() {
         setImportGroupName(groupName)
       }
       setDirectImportText('')
-      toast.success('文本已应用')
+      toast.success(t('proxy.messages.textApplied'))
     } catch (error: any) {
-      toast.error(error?.message || '文本应用失败')
+      toast.error(error?.message || t('proxy.messages.textApplyFailed'))
     }
   }
 
@@ -805,7 +807,7 @@ export function ProxyPoolPage() {
   const handleFetchImportURL = async () => {
     const targetURL = importUrl.trim()
     if (!targetURL) {
-      toast.error('请输入订阅 URL')
+      toast.error(t('proxy.messages.subscriptionUrlRequired'))
       return
     }
 
@@ -814,7 +816,7 @@ export function ProxyPoolPage() {
       const result = await fetchClashImportFromURL(targetURL)
       const content = (result?.content || '').trim()
       if (!content) {
-        throw new Error('订阅内容为空')
+        throw new Error(t('proxy.messages.subscriptionEmpty'))
       }
 
       setImportResolvedUrl((result?.url || targetURL).trim())
@@ -827,10 +829,10 @@ export function ProxyPoolPage() {
         setImportGroupName(result.suggestedGroup.trim())
       }
 
-      toast.success(`URL 获取成功，检测到 ${Math.max(0, Number(result?.proxyCount || 0))} 个代理`)
+      toast.success(`${t('proxy.messages.urlFetchSuccess')} ${Math.max(0, Number(result?.proxyCount || 0))} ${t('proxy.messages.proxiesCountSuffix')}`)
     } catch (error: any) {
       setImportResolvedUrl('')
-      toast.error(error?.message || 'URL 获取失败')
+      toast.error(error?.message || t('proxy.messages.urlFetchFailed'))
     } finally {
       setFetchingImportUrl(false)
     }
@@ -857,7 +859,7 @@ export function ProxyPoolPage() {
         candidates = [buildChainImportCandidate(chainImportForm)]
       }
       if (!candidates.length) {
-        toast.error('未解析到可导入代理')
+        toast.error(t('proxy.messages.noImportable'))
         return
       }
       const preview = buildImportPreview(candidates, previewGroupName)
@@ -866,13 +868,13 @@ export function ProxyPoolPage() {
       setImportModalOpen(false)
       setPreviewModalOpen(true)
     } catch (error: any) {
-      toast.error(`解析失败: ${error?.message || '未知错误'}`)
+      toast.error(`${t('proxy.messages.parseFailed')}: ${error?.message || t('proxy.messages.unknownError')}`)
     }
   }
 
   const handleConfirmImport = async () => {
     if (previewList.length === 0) {
-      toast.error('请至少保留 1 个代理后再导入')
+      toast.error(t('proxy.messages.keepOneBeforeImport'))
       return
     }
     setImporting(true)
@@ -922,9 +924,9 @@ export function ProxyPoolPage() {
       setDirectImportForm({ ...INITIAL_DIRECT_IMPORT_FORM })
       setPreviewList([])
       setRemovedPreviewProxyNames([])
-      toast.success(`成功导入 ${newProxies.length} 个代理`)
+      toast.success(`${t('proxy.messages.importSuccess')} ${newProxies.length} ${t('proxy.messages.proxiesCountSuffix')}`)
     } catch (error: any) {
-      toast.error(error?.message || '导入失败')
+      toast.error(error?.message || t('proxy.messages.importFailed'))
     } finally {
       setImporting(false)
     }
@@ -1081,36 +1083,36 @@ export function ProxyPoolPage() {
       <Modal
         open={checkSettingsOpen}
         onClose={() => setCheckSettingsOpen(false)}
-        title="检测设置"
+        title={t('proxy.modals.checkSettings')}
         width="760px"
         footer={(
           <>
-            <Button variant="secondary" onClick={() => setCheckSettingsOpen(false)}>取消</Button>
-            <Button onClick={saveCheckSettings} loading={savingCheckSettings}>保存</Button>
+            <Button variant="secondary" onClick={() => setCheckSettingsOpen(false)}>{t('common.actions.cancel')}</Button>
+            <Button onClick={saveCheckSettings} loading={savingCheckSettings}>{t('proxy.actions.save')}</Button>
           </>
         )}
       >
         <div className="space-y-4">
-          <FormItem label="桥接启动等待" hint="毫秒" >
+          <FormItem label={t('proxy.modals.bridgeStartWait')} hint={t('proxy.modals.milliseconds')} >
             <Input
               type="number"
               value={checkSettings.bridgeStartTimeoutMs}
               onChange={(e) => setCheckSettings(prev => ({ ...prev, bridgeStartTimeoutMs: Number(e.target.value) || 15000 }))}
             />
           </FormItem>
-          <FormItem label="测速目标 ID">
+          <FormItem label={t('proxy.modals.speedTargetId')}>
             <Input
               value={checkSettings.speedTargetId}
               onChange={(e) => setCheckSettings(prev => ({ ...prev, speedTargetId: e.target.value }))}
             />
           </FormItem>
-          <FormItem label="IP 健康目标 ID">
+          <FormItem label={t('proxy.modals.ipHealthTargetId')}>
             <Input
               value={checkSettings.ipHealthTargetId}
               onChange={(e) => setCheckSettings(prev => ({ ...prev, ipHealthTargetId: e.target.value }))}
             />
           </FormItem>
-          <FormItem label="检测目标列表（JSON，每项一个）" hint="可直接编辑 URL、超时、期望状态码">
+          <FormItem label={t('proxy.modals.checkTargets')} hint={t('proxy.modals.checkTargetsHint')}>
             <Textarea
               value={checkTargetsText}
               onChange={(e) => setCheckTargetsText(e.target.value)}
@@ -1121,13 +1123,13 @@ export function ProxyPoolPage() {
       </Modal>
 
       <ConfirmModal open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} onConfirm={handleDeleteConfirm}
-        title="确认删除" content="确定要删除这个代理吗？此操作不可恢复。" confirmText="删除" danger />
+        title={t('proxy.modals.deleteTitle')} content={t('proxy.modals.deleteContent')} confirmText={t('proxy.actions.delete')} danger />
 
       <ConfirmModal open={batchDeleteConfirmOpen} onClose={() => setBatchDeleteConfirmOpen(false)} onConfirm={handleBatchDeleteConfirm}
-        title="批量删除" content={`确定要删除选中的 ${selectedCount} 个代理吗？此操作不可恢复。`} confirmText="删除" danger />
+        title={t('proxy.modals.batchDeleteTitle')} content={`${t('proxy.modals.batchDeletePrefix')} ${selectedCount} ${t('proxy.modals.batchDeleteSuffix')}`} confirmText={t('proxy.actions.delete')} danger />
 
       <ConfirmModal open={cleanupUnusedConfirmOpen} onClose={() => setCleanupUnusedConfirmOpen(false)} onConfirm={handleCleanupUnusedConfirm}
-        title="清理未使用代理" content={`将删除 ${unusedProxyCount} 个未被任何实例使用的代理，内置直连代理会保留。此操作不可恢复。`} confirmText="清理" danger />
+        title={t('proxy.modals.cleanupTitle')} content={`${t('proxy.modals.cleanupPrefix')} ${unusedProxyCount} ${t('proxy.modals.cleanupSuffix')}`} confirmText={t('proxy.actions.cleanup')} danger />
     </div>
   )
 }
