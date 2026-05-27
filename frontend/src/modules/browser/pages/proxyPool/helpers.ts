@@ -217,6 +217,7 @@ export interface ProxyDisplayInfo {
   proxyId: string
   proxyName: string
   proxyConfig: string
+  instanceCount: number
   groupName: string
   sourceId: string
   sourceUrl: string
@@ -286,6 +287,7 @@ export function toDisplayList(proxies: BrowserProxy[]): ProxyDisplayInfo[] {
       proxyId: proxy.proxyId,
       proxyName: proxy.proxyName,
       proxyConfig: proxy.proxyConfig,
+      instanceCount: Math.max(0, Number(proxy.instanceCount || 0)),
       groupName: proxy.groupName || '',
       sourceId: proxy.sourceId || '',
       sourceUrl: proxy.sourceUrl || '',
@@ -835,6 +837,7 @@ export function buildImportPreview(candidates: ImportCandidate[], groupName: str
       proxyId: `preview-${index}`,
       proxyName: candidate.proxyName,
       proxyConfig: candidate.proxyConfig,
+      instanceCount: 0,
       groupName: candidate.groupName || groupName,
       sourceId: '',
       sourceUrl: '',

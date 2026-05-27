@@ -290,6 +290,10 @@ export function BrowserProxyCheckIPHealth(arg1) {
   return window['go']['main']['App']['BrowserProxyCheckIPHealth'](arg1);
 }
 
+export function BrowserProxyCleanupUnused() {
+  return window['go']['main']['App']['BrowserProxyCleanupUnused']();
+}
+
 export function BrowserProxyFetchClashByURL(arg1) {
   return window['go']['main']['App']['BrowserProxyFetchClashByURL'](arg1);
 }

@@ -2,15 +2,16 @@ package backend
 
 import (
 	"ant-chrome/backend/internal/proxy"
+	"strings"
 )
 
 func (a *App) BrowserProxyList() []BrowserProxy {
 	if a.browserMgr.ProxyDAO != nil {
 		if list, err := a.browserMgr.ProxyDAO.List(); err == nil {
-			return list
+			return a.withProxyInstanceCounts(list)
 		}
 	}
-	return append([]BrowserProxy{}, a.config.Browser.Proxies...)
+	return a.withProxyInstanceCounts(append([]BrowserProxy{}, a.config.Browser.Proxies...))
 }
 
 // BrowserProxyListGroups 获取所有代理分组名称
@@ -27,7 +28,7 @@ func (a *App) BrowserProxyListGroups() []string {
 func (a *App) BrowserProxyListByGroup(groupName string) []BrowserProxy {
 	if a.browserMgr.ProxyDAO != nil {
 		if list, err := a.browserMgr.ProxyDAO.ListByGroup(groupName); err == nil {
-			return list
+			return a.withProxyInstanceCounts(list)
 		}
 	}
 
@@ -37,7 +38,7 @@ func (a *App) BrowserProxyListByGroup(groupName string) []BrowserProxy {
 			result = append(result, item)
 		}
 	}
-	return result
+	return a.withProxyInstanceCounts(result)
 }
 
 // ValidateProxyConfig 验证代理配置是否支持
@@ -73,4 +74,46 @@ func (a *App) getLatestProxies() []BrowserProxy {
 		}
 	}
 	return a.config.Browser.Proxies
+}
+
+func (a *App) withProxyInstanceCounts(proxies []BrowserProxy) []BrowserProxy {
+	counts := a.proxyInstanceCounts()
+	for i := range proxies {
+		proxies[i].InstanceCount = counts[strings.TrimSpace(proxies[i].ProxyId)]
+	}
+	return proxies
+}
+
+func (a *App) proxyInstanceCounts() map[string]int {
+	counts := map[string]int{}
+	if a == nil || a.browserMgr == nil {
+		return counts
+	}
+
+	if a.browserMgr.ProfileDAO != nil {
+		profiles, err := a.browserMgr.ProfileDAO.List()
+		if err != nil {
+			return counts
+		}
+		for _, profile := range profiles {
+			if profile == nil {
+				continue
+			}
+			proxyID := strings.TrimSpace(profile.ProxyId)
+			if proxyID != "" {
+				counts[proxyID]++
+			}
+		}
+		return counts
+	}
+
+	if a.config != nil {
+		for _, profile := range a.config.Browser.Profiles {
+			proxyID := strings.TrimSpace(profile.ProxyId)
+			if proxyID != "" {
+				counts[proxyID]++
+			}
+		}
+	}
+	return counts
 }

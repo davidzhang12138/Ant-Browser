@@ -2,7 +2,7 @@
 import { Button, ConfirmModal, FormItem, Input, Modal, Textarea, toast } from '../../../shared/components'
 import type { SortOrder } from '../../../shared/components/Table'
 import type { BrowserProxy, ProxyCheckSettings, ProxyIPHealthResult } from '../types'
-import { createDefaultProxyCheckSettings, fetchBrowserProxies, fetchBrowserProxyGroups, saveBrowserProxies, browserProxyTestSpeed, browserProxyBatchTestSpeed, browserProxyCheckIPHealth, browserProxyBatchCheckIPHealth, fetchClashImportFromURL, fetchProxyCheckSettings, saveProxyCheckSettings } from '../api'
+import { createDefaultProxyCheckSettings, fetchBrowserProxies, fetchBrowserProxyGroups, saveBrowserProxies, browserProxyTestSpeed, browserProxyBatchTestSpeed, browserProxyCheckIPHealth, browserProxyBatchCheckIPHealth, fetchClashImportFromURL, fetchProxyCheckSettings, saveProxyCheckSettings, cleanupUnusedBrowserProxies } from '../api'
 import { EventsOn } from '../../../wailsjs/runtime/runtime'
 import {
   BUILTIN_PROXY_IDS,
@@ -86,6 +86,8 @@ export function ProxyPoolPage() {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [batchDeleteConfirmOpen, setBatchDeleteConfirmOpen] = useState(false)
+  const [cleanupUnusedConfirmOpen, setCleanupUnusedConfirmOpen] = useState(false)
+  const [cleaningUnused, setCleaningUnused] = useState(false)
 
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [importMode, setImportMode] = useState<ProxyImportMode>('clash')
@@ -408,6 +410,8 @@ export function ProxyPoolPage() {
         return compareText(a.proxyName || '', b.proxyName || '')
       case 'groupName':
         return compareText(a.groupName || '', b.groupName || '')
+      case 'instanceCount':
+        return (a.instanceCount || 0) - (b.instanceCount || 0)
       case 'type':
         return compareText(a.type || '', b.type || '')
       case 'server':
@@ -444,6 +448,10 @@ export function ProxyPoolPage() {
 
   const allFilteredSelected = filteredList.length > 0 && filteredList.every(p => selectedIds.has(p.proxyId))
   const someFilteredSelected = filteredList.some(p => selectedIds.has(p.proxyId))
+  const unusedProxyCount = useMemo(
+    () => displayList.filter(p => !BUILTIN_PROXY_IDS.has(p.proxyId) && (p.instanceCount || 0) === 0).length,
+    [displayList]
+  )
 
   const handleToggleAll = () => {
     if (allFilteredSelected) {
@@ -478,6 +486,24 @@ export function ProxyPoolPage() {
       setSelectedIds(new Set())
     } catch (error: any) {
       toast.error(error?.message || '删除失败')
+    }
+  }
+
+  const handleCleanupUnusedConfirm = async () => {
+    setCleaningUnused(true)
+    try {
+      const result = await cleanupUnusedBrowserProxies()
+      setSelectedIds(new Set())
+      await loadProxies()
+      if (result.deletedCount > 0) {
+        toast.success(`已清理 ${result.deletedCount} 个未使用代理`)
+      } else {
+        toast.info('没有可清理的未使用代理')
+      }
+    } catch (error: any) {
+      toast.error(error?.message || '清理未使用代理失败')
+    } finally {
+      setCleaningUnused(false)
     }
   }
 
@@ -918,8 +944,10 @@ export function ProxyPoolPage() {
     <div className="space-y-5 animate-fade-in">
       <ProxyPoolHeader
         checkingAllIPHealth={checkingAllIPHealth}
+        cleaningUnused={cleaningUnused}
         hasURLImportSources={hasURLImportSources}
         onCheckAllIPHealth={handleCheckAllIPHealth}
+        onCleanupUnused={() => setCleanupUnusedConfirmOpen(true)}
         onOpenSettings={() => void openCheckSettings()}
         onOpenImport={() => setImportModalOpen(true)}
         onRefreshAllSources={() => void handleRefreshAllSources(false)}
@@ -927,6 +955,7 @@ export function ProxyPoolPage() {
         refreshingAllSources={refreshingAllSources}
         testingAll={testingAll}
         totalCount={filteredList.length}
+        unusedCount={unusedProxyCount}
       />
 
       <ProxyPoolTableCard
@@ -1096,6 +1125,9 @@ export function ProxyPoolPage() {
 
       <ConfirmModal open={batchDeleteConfirmOpen} onClose={() => setBatchDeleteConfirmOpen(false)} onConfirm={handleBatchDeleteConfirm}
         title="批量删除" content={`确定要删除选中的 ${selectedCount} 个代理吗？此操作不可恢复。`} confirmText="删除" danger />
+
+      <ConfirmModal open={cleanupUnusedConfirmOpen} onClose={() => setCleanupUnusedConfirmOpen(false)} onConfirm={handleCleanupUnusedConfirm}
+        title="清理未使用代理" content={`将删除 ${unusedProxyCount} 个未被任何实例使用的代理，内置直连代理会保留。此操作不可恢复。`} confirmText="清理" danger />
     </div>
   )
 }

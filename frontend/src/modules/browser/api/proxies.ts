@@ -1,5 +1,5 @@
-﻿import type { BrowserProxy, ProxyIPHealthResult } from '../types'
-import { getBindings, getGoApp, getMockProxies, nowISOString, setMockProxies } from './runtime'
+﻿import type { BrowserProxy, BrowserProxyCleanupResult, ProxyIPHealthResult } from '../types'
+import { getBindings, getGoApp, getMockProfiles, getMockProxies, nowISOString, setMockProxies } from './runtime'
 
 export interface ClashImportURLResult {
   url: string
@@ -71,6 +71,31 @@ export async function saveBrowserProxies(proxies: BrowserProxy[]): Promise<boole
   }
   setMockProxies(proxies)
   return true
+}
+
+export async function cleanupUnusedBrowserProxies(): Promise<BrowserProxyCleanupResult> {
+  const bindings: any = await getBindings()
+  if (bindings?.BrowserProxyCleanupUnused) {
+    return (await bindings.BrowserProxyCleanupUnused()) || { deletedCount: 0, deletedProxyIds: [], remainingCount: 0 }
+  }
+
+  const goApp = getGoApp()
+  if (goApp?.BrowserProxyCleanupUnused) {
+    return (await goApp.BrowserProxyCleanupUnused()) || { deletedCount: 0, deletedProxyIds: [], remainingCount: 0 }
+  }
+
+  const usedIds = new Set(getMockProfiles().map(profile => profile.proxyId).filter(Boolean))
+  const current = getMockProxies()
+  const deletedProxyIds = current
+    .filter(proxy => proxy.proxyId !== '__direct__' && !usedIds.has(proxy.proxyId))
+    .map(proxy => proxy.proxyId)
+  const next = current.filter(proxy => proxy.proxyId === '__direct__' || usedIds.has(proxy.proxyId))
+  setMockProxies(next)
+  return {
+    deletedCount: deletedProxyIds.length,
+    deletedProxyIds,
+    remainingCount: next.length,
+  }
 }
 
 export async function validateProxyConfig(proxyConfig: string, proxyId: string): Promise<{ supported: boolean; errorMsg: string }> {

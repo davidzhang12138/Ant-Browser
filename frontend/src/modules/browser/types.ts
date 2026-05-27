@@ -126,6 +126,13 @@ export interface BrowserProxy {
   lastTestOk?: boolean
   lastTestedAt?: string
   lastIPHealthJson?: string
+  instanceCount?: number
+}
+
+export interface BrowserProxyCleanupResult {
+  deletedCount: number
+  deletedProxyIds: string[]
+  remainingCount: number
 }
 
 export interface ProxyIPHealthResult {

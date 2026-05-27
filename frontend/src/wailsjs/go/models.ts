@@ -223,6 +223,22 @@ export namespace backend {
 	        this.failedList = source["failedList"];
 	    }
 	}
+	export class BrowserProxyCleanupResult {
+	    deletedCount: number;
+	    deletedProxyIds: string[];
+	    remainingCount: number;
+
+	    static createFrom(source: any = {}) {
+	        return new BrowserProxyCleanupResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.deletedCount = source["deletedCount"];
+	        this.deletedProxyIds = source["deletedProxyIds"];
+	        this.remainingCount = source["remainingCount"];
+	    }
+	}
 	export class CookieInfo {
 	    name: string;
 	    value: string;
@@ -889,6 +905,7 @@ export namespace config {
 	    lastTestOk: boolean;
 	    lastTestedAt: string;
 	    lastIPHealthJson?: string;
+	    instanceCount: number;
 
 	    static createFrom(source: any = {}) {
 	        return new BrowserProxy(source);
@@ -912,6 +929,7 @@ export namespace config {
 	        this.lastTestOk = source["lastTestOk"];
 	        this.lastTestedAt = source["lastTestedAt"];
 	        this.lastIPHealthJson = source["lastIPHealthJson"];
+	        this.instanceCount = source["instanceCount"];
 	    }
 	}
 	export class ProxyCheckTarget {

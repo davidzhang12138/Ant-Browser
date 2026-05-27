@@ -2,8 +2,10 @@ import { Button } from '../../../../shared/components'
 
 interface ProxyPoolHeaderProps {
   checkingAllIPHealth: boolean
+  cleaningUnused: boolean
   hasURLImportSources: boolean
   onCheckAllIPHealth: () => void
+  onCleanupUnused: () => void
   onOpenImport: () => void
   onOpenSettings: () => void
   onRefreshAllSources: () => void
@@ -11,12 +13,15 @@ interface ProxyPoolHeaderProps {
   refreshingAllSources: boolean
   testingAll: boolean
   totalCount: number
+  unusedCount: number
 }
 
 export function ProxyPoolHeader({
   checkingAllIPHealth,
+  cleaningUnused,
   hasURLImportSources,
   onCheckAllIPHealth,
+  onCleanupUnused,
   onOpenImport,
   onOpenSettings,
   onRefreshAllSources,
@@ -24,14 +29,15 @@ export function ProxyPoolHeader({
   refreshingAllSources,
   testingAll,
   totalCount,
+  unusedCount,
 }: ProxyPoolHeaderProps) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between gap-3">
       <div>
         <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">代理池配置</h1>
         <p className="text-sm text-[var(--color-text-muted)] mt-1">管理代理配置，支持 Clash 订阅、HTTP、HTTPS、SOCKS5</p>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
         <Button
           size="sm"
           variant="secondary"
@@ -65,6 +71,15 @@ export function ProxyPoolHeader({
           disabled={totalCount === 0}
         >
           测试全部
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={onCleanupUnused}
+          loading={cleaningUnused}
+          disabled={unusedCount === 0}
+        >
+          清理未使用{unusedCount > 0 ? ` (${unusedCount})` : ''}
         </Button>
         <Button size="sm" onClick={onOpenImport}>导入代理</Button>
       </div>

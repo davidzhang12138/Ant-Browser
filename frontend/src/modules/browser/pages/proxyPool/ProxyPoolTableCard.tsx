@@ -173,6 +173,17 @@ export function ProxyPoolTableCard({
         )
       },
     },
+    {
+      key: 'instanceCount',
+      title: '使用实例',
+      width: '90px',
+      sortable: true,
+      render: (value) => (
+        <span className={value > 0 ? 'text-xs font-medium text-[var(--color-text-primary)]' : 'text-xs text-[var(--color-text-muted)]'}>
+          {value || 0}
+        </span>
+      ),
+    },
     { key: 'type', title: '类型', width: '90px', sortable: true },
     { key: 'server', title: '服务器', width: '180px', sortable: true },
     { key: 'port', title: '端口', width: '80px', sortable: true, render: (value) => value || '-' },

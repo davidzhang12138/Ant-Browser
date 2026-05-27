@@ -153,6 +153,8 @@ export function BrowserProxyBatchTestSpeed(arg1:Array<string>,arg2:number):Promi
 
 export function BrowserProxyCheckIPHealth(arg1:string):Promise<backend.ProxyIPHealthResult>;
 
+export function BrowserProxyCleanupUnused():Promise<backend.BrowserProxyCleanupResult>;
+
 export function BrowserProxyFetchClashByURL(arg1:string):Promise<Record<string, any>>;
 
 export function BrowserProxyList():Promise<Array<config.BrowserProxy>>;

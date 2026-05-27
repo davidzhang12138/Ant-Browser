@@ -31,3 +31,9 @@ type ProxyIPHealthResult struct {
 	RawData        map[string]interface{} `json:"rawData"`
 	UpdatedAt      string                 `json:"updatedAt"`
 }
+
+type BrowserProxyCleanupResult struct {
+	DeletedCount    int      `json:"deletedCount"`
+	DeletedProxyIds []string `json:"deletedProxyIds"`
+	RemainingCount  int      `json:"remainingCount"`
+}

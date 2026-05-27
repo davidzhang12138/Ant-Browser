@@ -186,6 +186,7 @@ type BrowserProxy struct {
 	LastTestOk             bool   `yaml:"-" json:"lastTestOk"`
 	LastTestedAt           string `yaml:"-" json:"lastTestedAt"`
 	LastIPHealthJSON       string `yaml:"-" json:"lastIPHealthJson,omitempty"`
+	InstanceCount          int    `yaml:"-" json:"instanceCount"`
 }
 
 type BrowserEnvironment struct {
