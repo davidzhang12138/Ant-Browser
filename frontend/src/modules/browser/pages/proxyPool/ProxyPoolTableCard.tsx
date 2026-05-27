@@ -290,6 +290,7 @@ export function ProxyPoolTableCard({
     onToggleOne,
     refreshingSourceIds,
     selectedIds,
+    t,
   ])
 
   return (

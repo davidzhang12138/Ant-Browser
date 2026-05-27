@@ -446,7 +446,7 @@ export function ProxyPoolPage() {
       const cmp = compareByColumn(a, b, sortColumn)
       return sortOrder === 'asc' ? cmp : -cmp
     })
-  }, [displayList, filterProtocol, filterKeyword, filterGroup, sortColumn, sortOrder, latencyMap])
+  }, [displayList, filterProtocol, filterKeyword, filterGroup, sortColumn, sortOrder, latencyMap, language])
 
   const allFilteredSelected = filteredList.length > 0 && filteredList.every(p => selectedIds.has(p.proxyId))
   const someFilteredSelected = filteredList.some(p => selectedIds.has(p.proxyId))

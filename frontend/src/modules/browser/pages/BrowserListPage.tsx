@@ -527,7 +527,7 @@ export function BrowserListPage() {
 
       return result * direction
     })
-  }, [filteredProfiles, profileSerialNumbers, sortColumn, sortOrder])
+  }, [filteredProfiles, profileSerialNumbers, sortColumn, sortOrder, language])
 
   const totalPages = Math.max(1, Math.ceil(sortedProfiles.length / pageSize))
 
