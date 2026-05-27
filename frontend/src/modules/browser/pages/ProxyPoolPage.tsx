@@ -320,7 +320,7 @@ export function ProxyPoolPage() {
         return next
       })
     }
-  }, [globalAutoRefreshEnabled, globalRefreshInterval, saveProxies])
+  }, [globalAutoRefreshEnabled, globalRefreshInterval, saveProxies, t])
 
   const handleRefreshAllSources = useCallback(async (silent = false) => {
     const metas = collectURLImportSources(proxiesRef.current)
@@ -348,7 +348,7 @@ export function ProxyPoolPage() {
         toast.warning(`${t('proxy.messages.refreshDone')}：${t('browserList.successCount')} ${successCount}/${metas.length}`)
       }
     }
-  }, [refreshSingleSource])
+  }, [refreshSingleSource, t])
 
   useEffect(() => {
     const runAutoRefresh = async () => {
