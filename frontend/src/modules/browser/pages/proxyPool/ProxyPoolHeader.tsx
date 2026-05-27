@@ -1,4 +1,5 @@
 import { Button } from '../../../../shared/components'
+import { useI18n } from '../../../../shared/i18n'
 
 interface ProxyPoolHeaderProps {
   checkingAllIPHealth: boolean
@@ -31,11 +32,12 @@ export function ProxyPoolHeader({
   totalCount,
   unusedCount,
 }: ProxyPoolHeaderProps) {
+  const { t } = useI18n()
   return (
     <div className="flex items-center justify-between gap-3">
       <div>
-        <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">代理池配置</h1>
-        <p className="text-sm text-[var(--color-text-muted)] mt-1">管理代理配置，支持 Clash 订阅、HTTP、HTTPS、SOCKS5</p>
+        <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">{t('proxy.title')}</h1>
+        <p className="text-sm text-[var(--color-text-muted)] mt-1">{t('proxy.subtitle')}</p>
       </div>
       <div className="flex flex-wrap justify-end gap-2">
         <Button
@@ -43,7 +45,7 @@ export function ProxyPoolHeader({
           variant="secondary"
           onClick={onOpenSettings}
         >
-          检测设置
+          {t('proxy.actions.settings')}
         </Button>
         <Button
           size="sm"
@@ -52,7 +54,7 @@ export function ProxyPoolHeader({
           loading={refreshingAllSources}
           disabled={!hasURLImportSources}
         >
-          刷新订阅
+          {t('proxy.actions.refreshSubscriptions')}
         </Button>
         <Button
           size="sm"
@@ -61,7 +63,7 @@ export function ProxyPoolHeader({
           loading={checkingAllIPHealth}
           disabled={totalCount === 0}
         >
-          检测IP健康
+          {t('proxy.actions.checkIPHealth')}
         </Button>
         <Button
           size="sm"
@@ -70,7 +72,7 @@ export function ProxyPoolHeader({
           loading={testingAll}
           disabled={totalCount === 0}
         >
-          测试全部
+          {t('proxy.actions.testAll')}
         </Button>
         <Button
           size="sm"
@@ -79,9 +81,9 @@ export function ProxyPoolHeader({
           loading={cleaningUnused}
           disabled={unusedCount === 0}
         >
-          清理未使用{unusedCount > 0 ? ` (${unusedCount})` : ''}
+          {t('proxy.actions.cleanupUnused')}{unusedCount > 0 ? ` (${unusedCount})` : ''}
         </Button>
-        <Button size="sm" onClick={onOpenImport}>导入代理</Button>
+        <Button size="sm" onClick={onOpenImport}>{t('proxy.actions.import')}</Button>
       </div>
     </div>
   )

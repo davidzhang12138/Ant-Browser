@@ -2,6 +2,7 @@
 import { FolderOpen, Settings, Edit2 } from 'lucide-react'
 import { Badge, Button, Card, ConfirmModal, FormItem, Input, Modal, Switch, Table, Textarea, toast } from '../../../shared/components'
 import type { TableColumn } from '../../../shared/components/Table'
+import { useI18n } from '../../../shared/i18n'
 import type { BrowserCore, BrowserCoreInput, BrowserCoreValidateResult, BrowserSettings, BrowserCoreExtended, BrowserProxy } from '../types'
 import { fetchBrowserCores, saveBrowserCore, deleteBrowserCore, setDefaultBrowserCore, validateBrowserCorePath, openCorePath, fetchBrowserSettings, saveBrowserSettings, fetchCoreExtendedInfo, scanBrowserCores, BrowserCoreDownload, fetchBrowserProxies } from '../api'
 import { EventsOn, EventsOff, BrowserOpenURL } from '../../../wailsjs/runtime/runtime'
@@ -18,6 +19,7 @@ interface CoreDisplayInfo {
 }
 
 export function CoreManagementPage() {
+  const { t } = useI18n()
   const [cores, setCores] = useState<BrowserCore[]>([])
   const [displayList, setDisplayList] = useState<CoreDisplayInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -156,55 +158,55 @@ export function CoreManagementPage() {
 
   // 表格列定义
   const columns: TableColumn<CoreDisplayInfo>[] = [
-    { key: 'coreName', title: '内核名称', width: '150px' },
-    { key: 'corePath', title: '内核路径', width: '180px' },
+    { key: 'coreName', title: t('core.coreName'), width: '150px' },
+    { key: 'corePath', title: t('core.corePath'), width: '180px' },
     {
       key: 'chromeVersion',
-      title: 'Chrome 版本',
+      title: t('core.chromeVersion'),
       width: '130px',
       render: (val) => val || '-',
     },
     {
       key: 'instanceCount',
-      title: '使用实例',
+      title: t('core.instanceCount'),
       width: '90px',
       render: (val) => <Badge variant="default">{val}</Badge>,
     },
     {
       key: 'isDefault',
-      title: '默认',
+      title: t('core.default'),
       width: '70px',
-      render: (val) => val ? <Badge variant="info">默认</Badge> : null,
+      render: (val) => val ? <Badge variant="info">{t('core.default')}</Badge> : null,
     },
     {
       key: 'pathValid',
-      title: '状态',
+      title: t('core.status'),
       width: '80px',
       render: (val) => (
         <Badge variant={val ? 'success' : 'error'}>
-          {val ? '有效' : '无效'}
+          {val ? t('core.valid') : t('core.invalid')}
         </Badge>
       ),
     },
     {
       key: 'actions',
-      title: '操作',
+      title: t('proxy.columns.actions'),
       width: '220px',
       render: (_, record) => (
         <div className="flex gap-2">
-          <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleOpenPath(record.corePath) }} title="打开目录">
+          <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleOpenPath(record.corePath) }} title={t('core.actions.reveal')}>
             <FolderOpen className="w-4 h-4" />
           </Button>
           <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEdit(record) }}>
-            编辑
+            {t('core.actions.edit')}
           </Button>
           {!record.isDefault && (
             <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleSetDefault(record.coreId) }}>
-              设为默认
+              {t('core.actions.setDefault')}
             </Button>
           )}
           <Button size="sm" variant="danger" onClick={(e) => { e.stopPropagation(); handleDeleteClick(record) }}>
-            删除
+            {t('core.actions.delete')}
           </Button>
         </div>
       ),
@@ -216,7 +218,7 @@ export function CoreManagementPage() {
     try {
       await openCorePath(corePath)
     } catch (error: any) {
-      toast.error(error?.message || '打开目录失败')
+      toast.error(error?.message || t('core.messages.openPathFailed'))
     }
   }
 
@@ -226,9 +228,9 @@ export function CoreManagementPage() {
     try {
       await scanBrowserCores()
       await loadData()
-      toast.success('扫描完成')
+      toast.success(t('core.messages.scanDone'))
     } catch (error: any) {
-      toast.error(error?.message || '扫描失败')
+      toast.error(error?.message || t('core.messages.scanFailed'))
     } finally {
       setScanning(false)
     }
@@ -256,11 +258,11 @@ export function CoreManagementPage() {
   // 保存内核
   const handleSaveCore = async () => {
     if (!editForm.coreName.trim()) {
-      toast.error('请输入内核名称')
+      toast.error(t('core.messages.coreNameRequired'))
       return
     }
     if (!editForm.corePath.trim()) {
-      toast.error('请输入内核路径')
+      toast.error(t('core.messages.corePathRequired'))
       return
     }
     setSaving(true)
@@ -274,9 +276,9 @@ export function CoreManagementPage() {
       await saveBrowserCore(input)
       await loadData()
       setEditModalOpen(false)
-      toast.success(editingCore ? '内核已更新' : '内核已添加')
+      toast.success(editingCore ? t('core.messages.coreUpdated') : t('core.messages.coreAdded'))
     } catch (error: any) {
-      toast.error(error?.message || '保存失败')
+      toast.error(error?.message || t('core.messages.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -285,7 +287,7 @@ export function CoreManagementPage() {
   // 删除点击
   const handleDeleteClick = (record: CoreDisplayInfo) => {
     if (record.isDefault) {
-      toast.warning('默认内核不能删除')
+      toast.warning(t('core.messages.defaultCoreCannotDelete'))
       return
     }
     setDeletingCore(record)
@@ -298,9 +300,9 @@ export function CoreManagementPage() {
     try {
       await deleteBrowserCore(deletingCore.coreId)
       await loadData()
-      toast.success('内核已删除')
+      toast.success(t('core.messages.coreDeleted'))
     } catch (error: any) {
-      toast.error(error?.message || '删除失败')
+      toast.error(error?.message || t('core.messages.deleteFailed'))
     }
     setDeletingCore(null)
   }
@@ -310,23 +312,23 @@ export function CoreManagementPage() {
     try {
       await setDefaultBrowserCore(coreId)
       await loadData()
-      toast.success('已设为默认内核')
+      toast.success(t('core.messages.setDefaultDone'))
     } catch (error: any) {
-      toast.error(error?.message || '设置失败')
+      toast.error(error?.message || t('core.messages.setDefaultFailed'))
     }
   }
 
   // 开始下载
   const handleStartDownloadCore = async () => {
     if (!downloadForm.name.trim() || !downloadForm.url.trim()) {
-      toast.error('请输入名称和下载地址')
+      toast.error(t('core.messages.downloadNameUrlRequired'))
       return
     }
     if (cores.some(c => c.coreName.toLowerCase() === downloadForm.name.trim().toLowerCase())) {
-      toast.error('该内核名称已存在')
+      toast.error(t('core.messages.coreNameExists'))
       return
     }
-    setDownloadProgress({ phase: 'starting', progress: 0, message: '准备下载...' })
+    setDownloadProgress({ phase: 'starting', progress: 0, message: t('core.messages.preparingDownload') })
     try {
       // 在这儿我们需要从 proxies 中寻找匹配到的代理设定，如果有则传过去的 url
       let targetProxy = ''
@@ -344,7 +346,7 @@ export function CoreManagementPage() {
 
       await BrowserCoreDownload(downloadForm.name.trim(), downloadForm.url.trim(), targetProxy)
     } catch (err: any) {
-      toast.error(err.message || '内部启动下载失败')
+      toast.error(err.message || t('core.messages.downloadStartFailed'))
       setDownloadProgress(null)
     }
   }
@@ -379,9 +381,9 @@ export function CoreManagementPage() {
       await saveBrowserSettings(newSettings)
       setSettings(newSettings)
       setSettingsModalOpen(false)
-      toast.success('设置已保存')
+      toast.success(t('core.messages.settingsSaved'))
     } catch (error: any) {
-      toast.error(error?.message || '保存失败')
+      toast.error(error?.message || t('core.messages.saveFailed'))
     } finally {
       setSavingSettings(false)
     }
@@ -392,13 +394,13 @@ export function CoreManagementPage() {
     <div className="space-y-5 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">内核管理</h1>
-          <p className="text-sm text-[var(--color-text-muted)] mt-1">管理 Chrome 内核版本和全局设置</p>
+          <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">{t('core.title')}</h1>
+          <p className="text-sm text-[var(--color-text-muted)] mt-1">{t('core.subtitle')}</p>
         </div>
         <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={() => setDownloadModalOpen(true)}>下载内核</Button>
-          <Button size="sm" variant="secondary" onClick={handleScan} loading={scanning}>扫描内核</Button>
-          <Button size="sm" onClick={handleAdd}>新增内核</Button>
+          <Button size="sm" variant="secondary" onClick={() => setDownloadModalOpen(true)}>{t('core.actions.downloadCore')}</Button>
+          <Button size="sm" variant="secondary" onClick={handleScan} loading={scanning}>{t('core.actions.scan')}</Button>
+          <Button size="sm" onClick={handleAdd}>{t('core.actions.add')}</Button>
         </div>
       </div>
 
@@ -407,20 +409,20 @@ export function CoreManagementPage() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-[var(--color-text-muted)]" />
-            <h3 className="text-base font-medium text-[var(--color-text-primary)]">全局设置</h3>
+            <h3 className="text-base font-medium text-[var(--color-text-primary)]">{t('core.globalSettings')}</h3>
           </div>
           <Button size="sm" variant="ghost" onClick={handleEditSettings}>
             <Edit2 className="w-4 h-4 mr-1" />
-            编辑
+            {t('core.actions.edit')}
           </Button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <p className="text-xs text-[var(--color-text-muted)] mb-1">用户数据根目录</p>
+            <p className="text-xs text-[var(--color-text-muted)] mb-1">{t('core.userDataRoot')}</p>
             <p className="text-sm text-[var(--color-text-primary)]">{settings.userDataRoot || '-'}</p>
           </div>
           <div>
-            <p className="text-xs text-[var(--color-text-muted)] mb-1">默认指纹参数</p>
+            <p className="text-xs text-[var(--color-text-muted)] mb-1">{t('core.defaultFingerprintArgs')}</p>
             {settings.defaultFingerprintArgs.length > 0 ? (
               <pre className="text-xs text-[var(--color-text-secondary)] bg-[var(--color-bg-subtle)] p-2 rounded max-h-20 overflow-auto">
                 {settings.defaultFingerprintArgs.join('\n')}
@@ -430,7 +432,7 @@ export function CoreManagementPage() {
             )}
           </div>
           <div>
-            <p className="text-xs text-[var(--color-text-muted)] mb-1">默认启动参数</p>
+            <p className="text-xs text-[var(--color-text-muted)] mb-1">{t('core.defaultLaunchArgs')}</p>
             {settings.defaultLaunchArgs.length > 0 ? (
               <pre className="text-xs text-[var(--color-text-secondary)] bg-[var(--color-bg-subtle)] p-2 rounded max-h-20 overflow-auto">
                 {settings.defaultLaunchArgs.join('\n')}
@@ -440,7 +442,7 @@ export function CoreManagementPage() {
             )}
           </div>
           <div>
-            <p className="text-xs text-[var(--color-text-muted)] mb-1">默认启动页面</p>
+            <p className="text-xs text-[var(--color-text-muted)] mb-1">{t('core.defaultStartUrls')}</p>
             {settings.defaultStartUrls.length > 0 ? (
               <pre className="text-xs text-[var(--color-text-secondary)] bg-[var(--color-bg-subtle)] p-2 rounded max-h-20 overflow-auto">
                 {settings.defaultStartUrls.join('\n')}
@@ -450,28 +452,28 @@ export function CoreManagementPage() {
             )}
           </div>
           <div>
-            <p className="text-xs text-[var(--color-text-muted)] mb-1">恢复上次标签页</p>
-            <p className="text-sm text-[var(--color-text-primary)]">{settings.restoreLastSession ? '开启' : '关闭'}</p>
+            <p className="text-xs text-[var(--color-text-muted)] mb-1">{t('core.restoreLastSession')}</p>
+            <p className="text-sm text-[var(--color-text-primary)]">{settings.restoreLastSession ? t('common.enabled') : t('common.disabled')}</p>
           </div>
           <div>
-            <p className="text-xs text-[var(--color-text-muted)] mb-1">启动就绪超时</p>
+            <p className="text-xs text-[var(--color-text-muted)] mb-1">{t('core.startReadyTimeout')}</p>
             <p className="text-sm text-[var(--color-text-primary)]">{settings.startReadyTimeoutMs} ms</p>
           </div>
           <div>
-            <p className="text-xs text-[var(--color-text-muted)] mb-1">启动稳定窗口</p>
+            <p className="text-xs text-[var(--color-text-muted)] mb-1">{t('core.startStableWindow')}</p>
             <p className="text-sm text-[var(--color-text-primary)]">{settings.startStableWindowMs} ms</p>
           </div>
         </div>
       </Card>
 
       {/* 内核列表卡片 */}
-      <Card title="内核列表" subtitle="已配置的 Chrome 内核">
+      <Card title={t('core.coreList')} subtitle={t('core.configuredCores')}>
         <Table
           columns={columns}
           data={displayList}
           rowKey="coreId"
           loading={loading}
-          emptyText="暂无内核，请添加内核"
+          emptyText={t('core.empty')}
         />
       </Card>
 
@@ -479,52 +481,52 @@ export function CoreManagementPage() {
       <Modal
         open={settingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}
-        title="编辑全局设置"
+        title={t('core.modals.editGlobalSettings')}
         width="550px"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setSettingsModalOpen(false)}>取消</Button>
-            <Button onClick={handleSaveSettings} loading={savingSettings}>保存</Button>
+            <Button variant="secondary" onClick={() => setSettingsModalOpen(false)}>{t('common.actions.cancel')}</Button>
+            <Button onClick={handleSaveSettings} loading={savingSettings}>{t('core.actions.save')}</Button>
           </>
         }
       >
         <div className="space-y-4">
-          <FormItem label="用户数据根目录">
+          <FormItem label={t('core.userDataRoot')}>
             <Input
               value={settingsForm.userDataRoot}
               onChange={e => setSettingsForm(prev => ({ ...prev, userDataRoot: e.target.value }))}
-              placeholder="例如：data"
+              placeholder={t('core.modals.userDataRootPlaceholder')}
             />
           </FormItem>
-          <FormItem label="默认指纹参数">
+          <FormItem label={t('core.defaultFingerprintArgs')}>
             <Textarea
               value={settingsForm.defaultFingerprintArgs}
               onChange={e => setSettingsForm(prev => ({ ...prev, defaultFingerprintArgs: e.target.value }))}
               rows={4}
-              placeholder="每行一个参数，如 --fingerprint-brand=Chrome"
+              placeholder={t('core.modals.defaultFingerprintArgsPlaceholder')}
             />
           </FormItem>
-          <FormItem label="默认启动参数">
+          <FormItem label={t('core.defaultLaunchArgs')}>
             <Textarea
               value={settingsForm.defaultLaunchArgs}
               onChange={e => setSettingsForm(prev => ({ ...prev, defaultLaunchArgs: e.target.value }))}
               rows={4}
-              placeholder="每行一个参数，如 --disable-sync"
+              placeholder={t('core.modals.defaultLaunchArgsPlaceholder')}
             />
           </FormItem>
-          <FormItem label="默认启动页面" hint="每行一个 URL，留空则启动时不自动打开页面">
+          <FormItem label={t('core.defaultStartUrls')} hint={t('core.modals.defaultStartUrlsHint')}>
             <Textarea
               value={settingsForm.defaultStartUrls}
               onChange={e => setSettingsForm(prev => ({ ...prev, defaultStartUrls: e.target.value }))}
               rows={4}
-              placeholder="启动 URL"
+              placeholder={t('core.modals.startUrlPlaceholder')}
             />
           </FormItem>
-          <FormItem label="恢复上次关闭的标签页" hint="关闭后只打开默认启动页或空白页">
+          <FormItem label={t('core.modals.restoreTabsLabel')} hint={t('core.modals.restoreTabsHint')}>
             <div className="flex items-center justify-between rounded-lg border border-[var(--color-border-default)] px-3 py-2">
               <div>
-                <p className="text-sm text-[var(--color-text-primary)]">允许恢复旧 tab</p>
-                <p className="text-xs text-[var(--color-text-muted)] mt-1">关闭后，下次启动会继续恢复之前的标签页和窗口。</p>
+                <p className="text-sm text-[var(--color-text-primary)]">{t('core.modals.allowRestoreOldTabs')}</p>
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">{t('core.modals.restoreOldTabsDescription')}</p>
               </div>
               <Switch
                 checked={settingsForm.restoreLastSession}
@@ -533,7 +535,7 @@ export function CoreManagementPage() {
             </div>
           </FormItem>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormItem label="启动就绪超时（毫秒）" hint="默认 3000，慢机器可调到 5000-10000">
+            <FormItem label={t('core.modals.readyTimeoutLabel')} hint={t('core.modals.readyTimeoutHint')}>
               <Input
                 type="number"
                 min={1000}
@@ -543,7 +545,7 @@ export function CoreManagementPage() {
                 placeholder="3000"
               />
             </FormItem>
-            <FormItem label="启动稳定窗口（毫秒）" hint="建议 1200-3000">
+            <FormItem label={t('core.modals.stableWindowLabel')} hint={t('core.modals.stableWindowHint')}>
               <Input
                 type="number"
                 min={0}
@@ -561,31 +563,31 @@ export function CoreManagementPage() {
       <Modal
         open={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        title={editingCore ? '编辑内核' : '新增内核'}
+        title={editingCore ? t('core.modals.editCore') : t('core.modals.addCore')}
         width="500px"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setEditModalOpen(false)}>取消</Button>
-            <Button onClick={handleSaveCore} loading={saving}>保存</Button>
+            <Button variant="secondary" onClick={() => setEditModalOpen(false)}>{t('common.actions.cancel')}</Button>
+            <Button onClick={handleSaveCore} loading={saving}>{t('core.actions.save')}</Button>
           </>
         }
       >
         <div className="space-y-4">
-          <FormItem label="内核名称" required>
+          <FormItem label={t('core.coreName')} required>
             <Input
               value={editForm.coreName}
               onChange={e => setEditForm(prev => ({ ...prev, coreName: e.target.value }))}
-              placeholder="例如：Chrome 142"
+              placeholder={t('core.modals.coreNamePlaceholder')}
             />
           </FormItem>
-          <FormItem label="内核路径" required>
+          <FormItem label={t('core.corePath')} required>
             <Input
               value={editForm.corePath}
               onChange={e => setEditForm(prev => ({ ...prev, corePath: e.target.value }))}
-              placeholder="相对路径（如 chrome）或绝对路径"
+              placeholder={t('core.modals.corePathPlaceholder')}
             />
             {pathValidating && (
-              <p className="text-xs text-[var(--color-text-muted)] mt-1">验证中...</p>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">{t('core.modals.validating')}</p>
             )}
             {!pathValidating && pathValidResult && (
               <p className={`text-xs mt-1 ${pathValidResult.valid ? 'text-green-600' : 'text-red-500'}`}>
@@ -601,41 +603,41 @@ export function CoreManagementPage() {
         open={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleDeleteConfirm}
-        title="确认删除"
-        content={`确定要删除内核"${deletingCore?.coreName}"吗？此操作不可恢复。`}
-        confirmText="删除"
+        title={t('core.modals.confirmDeleteTitle')}
+        content={`${t('core.modals.confirmDeletePrefix')}${deletingCore?.coreName}${t('core.modals.confirmDeleteSuffix')}`}
+        confirmText={t('core.actions.delete')}
         danger
       />
 
       {/* 内核下载弹窗 */}
       <Modal open={downloadModalOpen} onClose={() => {
         if (downloadProgress && downloadProgress.phase !== 'done' && downloadProgress.phase !== 'error') {
-          toast.warning('正在下载中，请稍候...')
+          toast.warning(t('core.messages.downloadingWait'))
           return
         }
         setDownloadModalOpen(false)
         setDownloadProgress(null)
-      }} title="下载内核" width="480px"
+      }} title={t('core.modals.downloadCore')} width="480px"
         footer={
           <>
             <Button variant="secondary" onClick={() => {
               if (downloadProgress && downloadProgress.phase !== 'done' && downloadProgress.phase !== 'error') return;
               setDownloadModalOpen(false)
-            }} disabled={downloadProgress !== null && downloadProgress.phase !== 'error'}>取消</Button>
-            <Button onClick={handleStartDownloadCore} loading={downloadProgress !== null && downloadProgress.phase !== 'error'}>开始下载</Button>
+            }} disabled={downloadProgress !== null && downloadProgress.phase !== 'error'}>{t('common.actions.cancel')}</Button>
+            <Button onClick={handleStartDownloadCore} loading={downloadProgress !== null && downloadProgress.phase !== 'error'}>{t('core.actions.startDownload')}</Button>
           </>
         }>
         <div className="space-y-4">
-          <FormItem label="内核名称" required>
+          <FormItem label={t('core.coreName')} required>
             <Input
               value={downloadForm.name}
               onChange={e => setDownloadForm(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="例如: chrome-139"
+              placeholder={t('core.modals.downloadNamePlaceholder')}
               disabled={downloadProgress !== null}
             />
-            <p className="text-xs text-[var(--color-text-muted)] mt-1">该名称将同时作为数据存放的子文件夹名。</p>
+            <p className="text-xs text-[var(--color-text-muted)] mt-1">{t('core.modals.downloadNameHelp')}</p>
           </FormItem>
-          <FormItem label="下载地址 (ZIP)" required>
+          <FormItem label={t('core.modals.downloadUrl')} required>
             <Input
               value={downloadForm.url}
               onChange={e => setDownloadForm(prev => ({ ...prev, url: e.target.value }))}
@@ -643,18 +645,18 @@ export function CoreManagementPage() {
               disabled={downloadProgress !== null}
             />
             <div className="text-xs text-[var(--color-text-muted)] mt-2 flex items-center justify-between bg-[var(--color-bg-muted)] p-2 rounded">
-              <span>推荐指纹内核: fingerprint-chromium</span>
+              <span>{t('core.modals.recommendedCore')}</span>
               <button
                 type="button"
                 onClick={() => BrowserOpenURL('https://github.com/adryfish/fingerprint-chromium/releases')}
                 className="text-[var(--color-accent)] hover:underline cursor-pointer font-medium"
               >
-                前往 Releases 页面获取链接
+                {t('core.modals.openReleases')}
               </button>
             </div>
           </FormItem>
 
-          <FormItem label="下载代理设置">
+          <FormItem label={t('core.modals.downloadProxySettings')}>
             <select
               value={downloadForm.proxyMode}
               onChange={e => {
@@ -668,14 +670,14 @@ export function CoreManagementPage() {
               className="w-full h-9 px-3 rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
               disabled={downloadProgress !== null}
             >
-              <option value="system">跟随系统全局代理</option>
-              <option value="direct">直连模式 (不使用代理)</option>
-              {proxies.length > 0 && <option value="custom">指定应用代理配置...</option>}
+              <option value="system">{t('core.modals.systemProxy')}</option>
+              <option value="direct">{t('core.modals.directProxy')}</option>
+              {proxies.length > 0 && <option value="custom">{t('core.modals.customProxy')}</option>}
             </select>
           </FormItem>
 
           {downloadForm.proxyMode === 'custom' && (
-            <FormItem label="选择代理池节点" required>
+            <FormItem label={t('core.modals.chooseProxy')} required>
               <select
                 value={downloadForm.proxyId}
                 onChange={e => setDownloadForm(prev => ({ ...prev, proxyId: e.target.value }))}

@@ -12,6 +12,7 @@ import { EventsOn } from '../../../wailsjs/runtime/runtime'
 import { resolveActionErrorMessage, resolveActionFeedback } from '../utils/actionErrors'
 import { BrowserListDialogs } from './browserList/BrowserListDialogs'
 import { getBrowserListScrollTop, saveBrowserListReturnPath, saveBrowserListScrollTop } from '../utils/listReturnPath'
+import { useI18n } from '../../../shared/i18n'
 import {
   copyBrowserProfile,
   deleteBrowserCore,
@@ -37,23 +38,23 @@ import {
   validateProxyConfig,
 } from '../api'
 
-const resolveProfileStatus = (running: boolean, debugReady: boolean, starting: boolean, stopping: boolean) => {
+const resolveProfileStatus = (running: boolean, debugReady: boolean, starting: boolean, stopping: boolean, t: (key: string) => string) => {
   if (starting) {
-    return { variant: 'info' as const, label: '启动中' }
+    return { variant: 'info' as const, label: t('browserList.status.launching') }
   }
   if (stopping) {
-    return { variant: 'default' as const, label: '停止中' }
+    return { variant: 'default' as const, label: t('browserList.status.stopping') }
   }
   if (running && !debugReady) {
-    return { variant: 'info' as const, label: '运行中（待就绪）' }
+    return { variant: 'info' as const, label: t('browserList.status.runningPending') }
   }
   if (running) {
-    return { variant: 'success' as const, label: '运行中' }
+    return { variant: 'success' as const, label: t('browserList.status.running') }
   }
-  return { variant: 'warning' as const, label: '已停止' }
+  return { variant: 'warning' as const, label: t('browserList.status.stopped') }
 }
 
-const naturalCompare = (a: string, b: string): number => {
+const naturalCompare = (a: string, b: string, locale: string): number => {
   const re = /(\d+)|(\D+)/g
   const partsA = a.match(re) || []
   const partsB = b.match(re) || []
@@ -65,7 +66,7 @@ const naturalCompare = (a: string, b: string): number => {
     if (!isNaN(na) && !isNaN(nb)) {
       if (na !== nb) return na - nb
     } else {
-      const cmp = pa.localeCompare(pb, 'zh-CN')
+      const cmp = pa.localeCompare(pb, locale)
       if (cmp !== 0) return cmp
     }
   }
@@ -92,6 +93,7 @@ const compareProfileId = (a: BrowserProfile, b: BrowserProfile) => {
 }
 
 export function BrowserListPage() {
+  const { t, language } = useI18n()
   const [searchParams, setSearchParams] = useSearchParams()
   const [profiles, setProfiles] = useState<BrowserProfile[]>([])
   const [loading, setLoading] = useState(true)
@@ -177,7 +179,7 @@ export function BrowserListPage() {
   const [trashActionId, setTrashActionId] = useState<string | null>(null)
 
   const openCopyModal = (profile: BrowserProfile) => {
-    setCopyName(profile.profileName + ' (副本)')
+    setCopyName(`${profile.profileName} ${t('browserList.copySuffix')}`)
     setCopyModal({ open: true, profile })
   }
   const closeCopyModal = () => {
@@ -404,7 +406,7 @@ export function BrowserListPage() {
 
     const coreId = (profile.coreId || '').trim()
     if (!coreId || /^default$/i.test(coreId)) {
-      return '使用默认内核'
+      return t('browserList.defaultCore')
     }
     return coreId
   }
@@ -414,7 +416,7 @@ export function BrowserListPage() {
   const isProfileBusy = (profileId: string) => isProfileStarting(profileId) || isProfileStopping(profileId)
 
   const getProfileStatus = (profile: BrowserProfile) => (
-    resolveProfileStatus(profile.running, profile.debugReady, isProfileStarting(profile.profileId), isProfileStopping(profile.profileId))
+    resolveProfileStatus(profile.running, profile.debugReady, isProfileStarting(profile.profileId), isProfileStopping(profile.profileId), t)
   )
 
   const handleTestProfileProxy = async (profile: BrowserProfile) => {
@@ -423,11 +425,11 @@ export function BrowserListPage() {
     const proxyId = (profile.proxyId || '').trim()
 
     if (!proxyId && !proxyConfig) {
-      toast.info('该实例未配置代理')
+      toast.info(t('browserList.noProxy'))
       return
     }
     if (proxyConfig === 'direct://') {
-      toast.info('直连模式无需检测')
+      toast.info(t('browserList.directProxyNoTest'))
       return
     }
     if (proxyTestStates[profile.profileId]?.loading) return
@@ -447,12 +449,12 @@ export function BrowserListPage() {
         },
       }))
       if (result.ok) {
-        toast.success(`代理可用：${result.latencyMs} ms`)
+        toast.success(`${t('browserList.proxyAvailable')}：${result.latencyMs} ms`)
       } else {
-        toast.error(result.error || '代理检测失败')
+        toast.error(result.error || t('browserList.proxyTestFailed'))
       }
     } catch (error: any) {
-      const message = error?.message || '代理检测失败'
+      const message = error?.message || t('browserList.proxyTestFailed')
       setProxyTestStates(prev => ({
         ...prev,
         [profile.profileId]: { loading: false, ok: false, latencyMs: 0, error: message },
@@ -519,7 +521,7 @@ export function BrowserListPage() {
           break
         case 'profileName':
         default:
-          result = naturalCompare(a.profileName || '', b.profileName || '')
+          result = naturalCompare(a.profileName || '', b.profileName || '', language)
           break
       }
 
@@ -584,11 +586,11 @@ export function BrowserListPage() {
       if (startedProfile?.running && !startedProfile.debugReady && startedProfile.runtimeWarning) {
         toast.warning(startedProfile.runtimeWarning)
       } else {
-        toast.success(`实例已启动${startedProfile?.profileName ? `：${startedProfile.profileName}` : ''}`)
+        toast.success(`${t('browserList.started')}${startedProfile?.profileName ? `：${startedProfile.profileName}` : ''}`)
       }
       await loadProfiles({ silent: true, syncRuntimeState: true })
     } catch (error: any) {
-      const feedback = resolveActionFeedback(error, '实例启动失败')
+      const feedback = resolveActionFeedback(error, t('browserList.startFailed'))
       if (feedback.tone === 'warning') {
         toast.warning(feedback.message)
       } else {
@@ -610,13 +612,13 @@ export function BrowserListPage() {
       if (startedProfile?.running && !startedProfile.debugReady && startedProfile.runtimeWarning) {
         toast.warning(startedProfile.runtimeWarning)
       } else {
-        toast.success(`实例已直连启动${startedProfile?.profileName ? `：${startedProfile.profileName}` : ''}`)
+        toast.success(`${t('browserList.startedDirect')}${startedProfile?.profileName ? `：${startedProfile.profileName}` : ''}`)
       }
       await loadProfiles({ silent: true, syncRuntimeState: true })
     } catch (error: any) {
       setProxyErrorModal(false)
       setPendingStartId(null)
-      const feedback = resolveActionFeedback(error, '实例直连启动失败')
+      const feedback = resolveActionFeedback(error, t('browserList.startDirectFailed'))
       if (feedback.tone === 'warning') {
         toast.warning(feedback.message)
       } else {
@@ -633,10 +635,10 @@ export function BrowserListPage() {
     try {
       const stoppedProfile = await stopBrowserInstance(profileId)
       mergeProfileState(stoppedProfile)
-      toast.success('实例已停止')
+      toast.success(t('browserList.stopped'))
       await loadProfiles({ silent: true, syncRuntimeState: true })
     } catch (error: any) {
-      toast.error(resolveActionErrorMessage(error, '实例停止失败'))
+      toast.error(resolveActionErrorMessage(error, t('browserList.stopFailed')))
       await loadProfiles({ silent: true, syncRuntimeState: true })
     } finally {
       updatePendingIds(setStoppingIds, profileId, false)
@@ -648,10 +650,10 @@ export function BrowserListPage() {
     try {
       const restartedProfile = await restartBrowserInstance(profileId)
       mergeProfileState(restartedProfile)
-      toast.success(`实例已重启${restartedProfile?.profileName ? `：${restartedProfile.profileName}` : ''}`)
+      toast.success(`${t('browserList.restarted')}${restartedProfile?.profileName ? `：${restartedProfile.profileName}` : ''}`)
       await loadProfiles({ silent: true, syncRuntimeState: true })
     } catch (error: any) {
-      const feedback = resolveActionFeedback(error, '实例重启失败')
+      const feedback = resolveActionFeedback(error, t('browserList.restartFailed'))
       if (feedback.tone === 'warning') {
         toast.warning(feedback.message)
       } else {
@@ -680,13 +682,13 @@ export function BrowserListPage() {
       }
       setSelectedIds(new Set())
       setDeleteModal({ open: false, ids: [], names: [] })
-      toast.success(skipTrash ? `已彻底删除 ${ids.length} 个实例` : `已移入回收站，默认保留 30 天`)
+      toast.success(skipTrash ? `${t('browserList.deleteForeverDone')} ${ids.length}` : t('browserList.movedToTrash'))
       await loadProfiles()
       if (trashOpen) {
         await loadTrashProfiles()
       }
     } catch (error: any) {
-      setOpError(typeof error === 'string' ? error : error?.message || '删除失败')
+      setOpError(typeof error === 'string' ? error : error?.message || t('browserList.deleteFailed'))
     } finally {
       setDeleting(false)
     }
@@ -697,7 +699,7 @@ export function BrowserListPage() {
     try {
       setTrashProfiles(await fetchBrowserProfileTrash())
     } catch (error: any) {
-      setOpError(typeof error === 'string' ? error : error?.message || '回收站加载失败')
+      setOpError(typeof error === 'string' ? error : error?.message || t('browserList.trashLoadFailed'))
     } finally {
       setTrashLoading(false)
     }
@@ -713,10 +715,10 @@ export function BrowserListPage() {
     setTrashActionId(profileId)
     try {
       await restoreBrowserProfile(profileId)
-      toast.success('实例已恢复')
+      toast.success(t('browserList.restored'))
       await Promise.all([loadProfiles(), loadTrashProfiles()])
     } catch (error: any) {
-      setOpError(typeof error === 'string' ? error : error?.message || '恢复失败')
+      setOpError(typeof error === 'string' ? error : error?.message || t('browserList.restoreFailed'))
     } finally {
       setTrashActionId(null)
     }
@@ -727,10 +729,10 @@ export function BrowserListPage() {
     setTrashActionId(profileId)
     try {
       await deleteBrowserProfileForever(profileId)
-      toast.success('实例已彻底删除')
+      toast.success(t('browserList.deleteForeverDone'))
       await Promise.all([loadProfiles(), loadTrashProfiles()])
     } catch (error: any) {
-      setOpError(typeof error === 'string' ? error : error?.message || '彻底删除失败')
+      setOpError(typeof error === 'string' ? error : error?.message || t('browserList.deleteForeverFailed'))
     } finally {
       setTrashActionId(null)
     }
@@ -771,7 +773,7 @@ export function BrowserListPage() {
         mergeProfileState(startedProfile)
         success++
       } catch (error: any) {
-        const feedback = resolveActionFeedback(error, '实例启动失败')
+        const feedback = resolveActionFeedback(error, t('browserList.startFailed'))
         if (feedback.pendingAttach) {
           pending++
           pendingMessages.push(`${profile.profileName}：${feedback.message}`)
@@ -784,19 +786,19 @@ export function BrowserListPage() {
       }
     }
     setBatchLoading(false)
-    const summary = [`成功 ${success}`]
-    if (pending > 0) summary.push(`待接管 ${pending}`)
-    if (failed > 0) summary.push(`失败 ${failed}`)
-    toast.success(`批量启动完成：${summary.join('，')}`)
+    const summary = [`${t('browserList.successCount')} ${success}`]
+    if (pending > 0) summary.push(`${t('browserList.pendingAttachCount')} ${pending}`)
+    if (failed > 0) summary.push(`${t('browserList.failedCount')} ${failed}`)
+    toast.success(`${t('browserList.batchStartDone')}：${summary.join('，')}`)
     if (pendingMessages.length > 0) {
       const preview = pendingMessages.slice(0, 3)
-      const more = pendingMessages.length > preview.length ? `\n另有 ${pendingMessages.length - preview.length} 个实例已打开窗口，仍在后台接管。` : ''
-      toast.warning(`以下实例已打开窗口，仍在后台接管：\n${preview.join('\n')}${more}`)
+      const more = pendingMessages.length > preview.length ? `\n${t('browserList.dialogs.moreProfiles')} ${pendingMessages.length - preview.length} ${t('browserList.openedStillAttachingMore')}` : ''
+      toast.warning(`${t('browserList.openedStillAttaching')}\n${preview.join('\n')}${more}`)
     }
     if (failureMessages.length > 0) {
       const preview = failureMessages.slice(0, 3)
-      const more = failureMessages.length > preview.length ? `\n另有 ${failureMessages.length - preview.length} 个实例启动失败，请逐个检查。` : ''
-      toast.error(`以下实例启动失败：\n${preview.join('\n')}${more}`)
+      const more = failureMessages.length > preview.length ? `\n${t('browserList.dialogs.moreProfiles')} ${failureMessages.length - preview.length} ${t('browserList.startFailedMore')}` : ''
+      toast.error(`${t('browserList.startFailedList')}\n${preview.join('\n')}${more}`)
     }
     loadProfiles()
   }
@@ -821,7 +823,7 @@ export function BrowserListPage() {
       }
     }
     setBatchLoading(false)
-    toast.success(`批量停止完成：成功 ${success}${failed > 0 ? `，失败 ${failed}` : ''}`)
+    toast.success(`${t('browserList.batchStopDone')}：${t('browserList.successCount')} ${success}${failed > 0 ? `，${t('browserList.failedCount')} ${failed}` : ''}`)
     loadProfiles()
   }
 
@@ -837,12 +839,12 @@ export function BrowserListPage() {
     setCopying(true)
     try {
       await copyBrowserProfile(profileId, copyName)
-      toast.success('实例已复制')
+      toast.success(t('browserList.copied'))
       closeCopyModal()
       loadProfiles()
     } catch (error: any) {
       closeCopyModal()
-      setOpError(typeof error === 'string' ? error : error?.message || '复制失败')
+      setOpError(typeof error === 'string' ? error : error?.message || t('browserList.copyFailed'))
     } finally {
       setCopying(false)
     }
@@ -862,10 +864,10 @@ export function BrowserListPage() {
         defaultLaunchArgs: launchText.split('\n').map(s => s.trim()).filter(Boolean),
         defaultStartUrls: startUrlsText.split('\n').map(s => s.trim()).filter(Boolean),
       })
-      toast.success('配置已保存')
+      toast.success(t('browserList.settingsSaved'))
       setSettingsModalOpen(false)
     } catch (error: any) {
-      toast.error(error?.message || '保存失败')
+      toast.error(error?.message || t('browserList.saveFailed'))
     } finally {
       setSavingSettings(false)
     }
@@ -880,7 +882,7 @@ export function BrowserListPage() {
 
   const handleValidateCorePath = async () => {
     if (!coreForm.corePath.trim()) {
-      setCoreValidation({ valid: false, message: '请输入路径' })
+      setCoreValidation({ valid: false, message: t('browserList.pathRequired') })
       return
     }
     const result = await validateBrowserCorePath(coreForm.corePath)
@@ -889,21 +891,21 @@ export function BrowserListPage() {
 
   const handleSaveCore = async () => {
     if (!coreForm.coreName.trim()) {
-      toast.error('请输入内核名称')
+      toast.error(t('browserList.coreNameRequired'))
       return
     }
     if (!coreForm.corePath.trim()) {
-      toast.error('请输入内核路径')
+      toast.error(t('browserList.corePathRequired'))
       return
     }
     setSavingCore(true)
     try {
       await saveBrowserCore(coreForm)
-      toast.success('内核已保存')
+      toast.success(t('browserList.coreSaved'))
       setCoreModalOpen(false)
       loadCores()
     } catch (error: any) {
-      toast.error(error?.message || '保存失败')
+      toast.error(error?.message || t('browserList.saveFailed'))
     } finally {
       setSavingCore(false)
     }
@@ -911,17 +913,17 @@ export function BrowserListPage() {
 
   const handleDeleteCore = async (coreId: string) => {
     if (cores.length <= 1) {
-      toast.error('至少保留一个内核')
+      toast.error(t('browserList.keepOneCore'))
       return
     }
     await deleteBrowserCore(coreId)
-    toast.success('内核已删除')
+    toast.success(t('browserList.coreDeleted'))
     loadCores()
   }
 
   const handleSetDefaultCore = async (coreId: string) => {
     await setDefaultBrowserCore(coreId)
-    toast.success('已设为默认')
+    toast.success(t('browserList.setDefaultDone'))
     loadCores()
   }
 

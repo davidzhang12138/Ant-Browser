@@ -1,5 +1,6 @@
 ﻿import { Button, FormItem, Input, Modal, Select, Table, Textarea } from '../../../../shared/components'
 import type { TableColumn } from '../../../../shared/components/Table'
+import { useI18n } from '../../../../shared/i18n'
 import type { ProxyIPHealthResult } from '../../types'
 
 import {
@@ -94,19 +95,20 @@ export function ProxyPoolImportModal({
   onCopyDirectTemplate,
   onDirectImportFormChange,
 }: ProxyPoolImportModalProps) {
+  const { t } = useI18n()
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="导入代理配置"
+      title={t('proxy.modals.importTitle')}
       width="600px"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={fetchingImportUrl}>
-            取消
+            {t('common.actions.cancel')}
           </Button>
           <Button onClick={onParse} disabled={fetchingImportUrl || !canParseImport}>
-            解析
+            {t('proxy.actions.parse')}
           </Button>
         </>
       }
@@ -117,36 +119,36 @@ export function ProxyPoolImportModal({
             variant={importMode === 'clash' ? undefined : 'secondary'}
             onClick={() => onImportModeChange('clash')}
           >
-            Clash 订阅 / YAML
+            {t('proxy.modals.clashMode')}
           </Button>
           <Button
             variant={importMode === 'direct' ? undefined : 'secondary'}
             onClick={() => onImportModeChange('direct')}
           >
-            HTTP / SOCKS5
+            {t('proxy.modals.directMode')}
           </Button>
           <Button
             variant={importMode === 'chain' ? undefined : 'secondary'}
             onClick={() => onImportModeChange('chain')}
           >
-            链式代理
+            {t('proxy.modals.chainMode')}
           </Button>
         </div>
         <p className="text-sm text-[var(--color-text-muted)]">
           {importMode === 'clash'
-            ? '支持粘贴 Clash YAML，或通过订阅 URL 自动拉取并解析（含 proxies、dns、proxy-groups）'
+            ? t('proxy.modals.clashDescription')
             : importMode === 'direct'
-              ? '支持单条录入 HTTP / HTTPS / SOCKS5 代理，也支持 JSON 或多行标准代理文本批量导入，导入后直接生效，不走 Clash 桥接'
-              : '支持两层 SOCKS5 链式代理，使用 JSON 导入，导入后将由本地桥接生成 127.0.0.1 SOCKS5 供 Chromium 使用'}
+              ? t('proxy.modals.directDescription')
+              : t('proxy.modals.chainDescription')}
         </p>
         {importMode === 'clash' && (
           <>
-            <FormItem label="订阅 URL（可选）">
+            <FormItem label={t('proxy.modals.subscriptionUrl')}>
               <div className="flex gap-2">
                 <Input
                   value={importUrl}
                   onChange={(event) => onImportUrlChange(event.target.value)}
-                  placeholder="订阅 URL"
+                  placeholder={t('proxy.modals.subscriptionUrlPlaceholder')}
                   className="flex-1"
                 />
                 <Button
@@ -155,16 +157,16 @@ export function ProxyPoolImportModal({
                   loading={fetchingImportUrl}
                   disabled={!importUrl.trim()}
                 >
-                  从 URL 获取
+                  {t('proxy.actions.fetchFromUrl')}
                 </Button>
               </div>
               {importResolvedUrl.trim() && (
                 <p className="text-xs text-[var(--color-success)] mt-1 break-all">
-                  已绑定订阅：{importResolvedUrl}
+                  {t('proxy.modals.boundSubscription')}：{importResolvedUrl}
                 </p>
               )}
               <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                获取成功后会自动回填 YAML 文本，并尝试自动填充 DNS 与建议分组；自动刷新时间请在列表顶部统一配置
+                {t('proxy.modals.subscriptionHelp')}
               </p>
             </FormItem>
             <Textarea
@@ -178,7 +180,7 @@ export function ProxyPoolImportModal({
         {importMode === 'direct' && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <FormItem label="代理协议" required>
+              <FormItem label={t('proxy.modals.proxyProtocol')} required>
                 <Select
                   options={[...DIRECT_PROXY_PROTOCOL_OPTIONS]}
                   value={directImportForm.protocol}
@@ -187,47 +189,47 @@ export function ProxyPoolImportModal({
                   }
                 />
               </FormItem>
-              <FormItem label="代理名称（可选）">
+              <FormItem label={t('proxy.modals.proxyNameOptional')}>
                 <Input
                   value={directImportForm.proxyName}
                   onChange={(event) => onDirectImportFormChange({ proxyName: event.target.value })}
-                  placeholder="节点名称"
+                  placeholder={t('proxy.modals.nodeName')}
                 />
               </FormItem>
-              <FormItem label="代理地址" required>
+              <FormItem label={t('proxy.modals.proxyAddress')} required>
                 <Input
                   value={directImportForm.server}
                   onChange={(event) => onDirectImportFormChange({ server: event.target.value })}
-                  placeholder="例如：127.0.0.1 或 hk.example.com"
+                  placeholder={t('proxy.modals.proxyAddressExample')}
                 />
               </FormItem>
-              <FormItem label="代理端口" required>
+              <FormItem label={t('proxy.modals.proxyPort')} required>
                 <Input
                   type="number"
                   min={1}
                   max={65535}
                   value={directImportForm.port}
                   onChange={(event) => onDirectImportFormChange({ port: event.target.value })}
-                  placeholder="例如：1080"
+                  placeholder={t('proxy.modals.proxyPortExample')}
                 />
               </FormItem>
-              <FormItem label="账号（可选）">
+              <FormItem label={t('proxy.modals.usernameOptional')}>
                 <Input
                   value={directImportForm.username}
                   onChange={(event) => onDirectImportFormChange({ username: event.target.value })}
-                  placeholder="留空则不使用认证"
+                  placeholder={t('proxy.modals.noAuthPlaceholder')}
                 />
               </FormItem>
-              <FormItem label="密码（可选）">
+              <FormItem label={t('proxy.modals.passwordOptional')}>
                 <Input
                   type="password"
                   value={directImportForm.password}
                   onChange={(event) => onDirectImportFormChange({ password: event.target.value })}
-                  placeholder="留空则不使用密码"
+                  placeholder={t('proxy.modals.noPasswordPlaceholder')}
                 />
               </FormItem>
             </div>
-            <FormItem label="文本辅助（可选）" hint="支持单个 JSON、JSON 数组，或多行 http:// / https:// / socks5://，每行一个">
+            <FormItem label={t('proxy.modals.textHelper')} hint={t('proxy.modals.textHelperHint')}>
               <Textarea
                 value={directImportText}
                 onChange={(event) => onDirectImportTextChange(event.target.value)}
@@ -236,17 +238,17 @@ export function ProxyPoolImportModal({
               />
               <div className="mt-2 flex gap-2">
                 <Button size="sm" variant="secondary" onClick={onFillDirectTemplate}>
-                  填入模板
+                  {t('proxy.actions.fillTemplate')}
                 </Button>
                 <Button size="sm" variant="secondary" onClick={onCopyDirectTemplate}>
-                  复制模板
+                  {t('proxy.actions.copyTemplate')}
                 </Button>
                 <Button size="sm" variant="secondary" onClick={onApplyDirectText} disabled={!directImportText.trim()}>
-                  应用文本
+                  {t('proxy.actions.applyText')}
                 </Button>
               </div>
               <p className="mt-2 text-xs text-[var(--color-text-muted)]">
-                留空则按上方表单导入；有内容则点击“解析”按文本直接导入，可批量。
+                {t('proxy.modals.directTextHelp')}
               </p>
             </FormItem>
           </div>
@@ -254,28 +256,28 @@ export function ProxyPoolImportModal({
         {importMode === 'chain' && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <FormItem label="代理名称（可选）">
+              <FormItem label={t('proxy.modals.proxyNameOptional')}>
                 <Input
                   value={chainImportForm.proxyName}
                   onChange={(event) => onChainImportFormChange({ proxyName: event.target.value })}
-                  placeholder="例如：双层英国链路"
+                  placeholder={t('proxy.modals.nodeName')}
                 />
               </FormItem>
-              <FormItem label="本地监听端口（可选）">
+              <FormItem label={t('proxy.modals.localPortOptional')}>
                 <Input
                   type="number"
                   min={1}
                   max={65535}
                   value={chainImportForm.localPort}
                   onChange={(event) => onChainImportFormChange({ localPort: event.target.value })}
-                  placeholder="留空自动分配"
+                  placeholder={t('proxy.modals.autoAssign')}
                 />
               </FormItem>
             </div>
             <div className="rounded-md border border-[var(--color-border)] p-3 space-y-3">
-              <h4 className="text-sm font-medium text-[var(--color-text-primary)]">第一层代理</h4>
+              <h4 className="text-sm font-medium text-[var(--color-text-primary)]">{t('proxy.modals.firstHop')}</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <FormItem label="协议">
+                <FormItem label={t('proxy.modals.protocol')}>
                   <Select
                     value={chainImportForm.first.protocol}
                     onChange={(event) => onChainImportHopChange('first', 'protocol', event.target.value)}
@@ -285,30 +287,30 @@ export function ProxyPoolImportModal({
                     ]}
                   />
                 </FormItem>
-                <FormItem label="代理地址" required>
+                <FormItem label={t('proxy.modals.proxyAddress')} required>
                   <Input
                     value={chainImportForm.first.server}
                     onChange={(event) => onChainImportHopChange('first', 'server', event.target.value)}
-                    placeholder="代理地址"
+                    placeholder={t('proxy.modals.proxyAddress')}
                   />
                 </FormItem>
-                <FormItem label="代理端口" required>
+                <FormItem label={t('proxy.modals.proxyPort')} required>
                   <Input
                     type="number"
                     min={1}
                     max={65535}
                     value={chainImportForm.first.port}
                     onChange={(event) => onChainImportHopChange('first', 'port', event.target.value)}
-                    placeholder="端口"
+                    placeholder={t('proxy.port')}
                   />
                 </FormItem>
-                <FormItem label="账号（可选）">
+                <FormItem label={t('proxy.modals.usernameOptional')}>
                   <Input
                     value={chainImportForm.first.username}
                     onChange={(event) => onChainImportHopChange('first', 'username', event.target.value)}
                   />
                 </FormItem>
-                <FormItem label="密码（可选）">
+                <FormItem label={t('proxy.modals.passwordOptional')}>
                   <Input
                     type="password"
                     value={chainImportForm.first.password}
@@ -318,9 +320,9 @@ export function ProxyPoolImportModal({
               </div>
             </div>
             <div className="rounded-md border border-[var(--color-border)] p-3 space-y-3">
-              <h4 className="text-sm font-medium text-[var(--color-text-primary)]">第二层代理</h4>
+              <h4 className="text-sm font-medium text-[var(--color-text-primary)]">{t('proxy.modals.secondHop')}</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <FormItem label="协议">
+                <FormItem label={t('proxy.modals.protocol')}>
                   <Select
                     value={chainImportForm.second.protocol}
                     onChange={(event) => onChainImportHopChange('second', 'protocol', event.target.value)}
@@ -330,30 +332,30 @@ export function ProxyPoolImportModal({
                     ]}
                   />
                 </FormItem>
-                <FormItem label="代理地址" required>
+                <FormItem label={t('proxy.modals.proxyAddress')} required>
                   <Input
                     value={chainImportForm.second.server}
                     onChange={(event) => onChainImportHopChange('second', 'server', event.target.value)}
-                    placeholder="代理地址"
+                    placeholder={t('proxy.modals.proxyAddress')}
                   />
                 </FormItem>
-                <FormItem label="代理端口" required>
+                <FormItem label={t('proxy.modals.proxyPort')} required>
                   <Input
                     type="number"
                     min={1}
                     max={65535}
                     value={chainImportForm.second.port}
                     onChange={(event) => onChainImportHopChange('second', 'port', event.target.value)}
-                    placeholder="端口"
+                    placeholder={t('proxy.port')}
                   />
                 </FormItem>
-                <FormItem label="账号（可选）">
+                <FormItem label={t('proxy.modals.usernameOptional')}>
                   <Input
                     value={chainImportForm.second.username}
                     onChange={(event) => onChainImportHopChange('second', 'username', event.target.value)}
                   />
                 </FormItem>
-                <FormItem label="密码（可选）">
+                <FormItem label={t('proxy.modals.passwordOptional')}>
                   <Input
                     type="password"
                     value={chainImportForm.second.password}
@@ -362,7 +364,7 @@ export function ProxyPoolImportModal({
                 </FormItem>
               </div>
             </div>
-            <FormItem label="JSON 辅助（可选）">
+            <FormItem label={t('proxy.modals.jsonHelper')}>
               <Textarea
                 value={chainImportText}
                 onChange={(event) => onChainImportTextChange(event.target.value)}
@@ -371,23 +373,23 @@ export function ProxyPoolImportModal({
               />
               <div className="mt-2 flex gap-2">
                 <Button size="sm" variant="secondary" onClick={onFillChainTemplate}>
-                  填入模板
+                  {t('proxy.actions.fillTemplate')}
                 </Button>
                 <Button size="sm" variant="secondary" onClick={onCopyChainTemplate}>
-                  复制模板
+                  {t('proxy.actions.copyTemplate')}
                 </Button>
                 <Button size="sm" variant="secondary" onClick={onApplyChainJSON} disabled={!chainImportText.trim()}>
-                  应用 JSON
+                  {t('proxy.actions.applyJson')}
                 </Button>
               </div>
             </FormItem>
           </div>
         )}
-        <FormItem label="分组名称（可选）">
+        <FormItem label={t('proxy.modals.groupNameOptional')}>
           <Input
             value={importGroupName}
             onChange={(event) => onImportGroupNameChange(event.target.value)}
-            placeholder="分组名称"
+            placeholder={t('proxy.modals.groupNamePlaceholder')}
             list="proxy-groups-datalist"
           />
           {groups.length > 0 && (
@@ -398,23 +400,23 @@ export function ProxyPoolImportModal({
             </datalist>
           )}
           <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            填写后本次导入的代理将归入该分组，可按分组筛选
+            {t('proxy.modals.groupHelp')}
           </p>
         </FormItem>
         {importMode === 'clash' && (
-          <FormItem label="名称前缀（可选）">
+          <FormItem label={t('proxy.modals.namePrefixOptional')}>
             <Input
               value={importNamePrefix}
               onChange={(event) => onImportNamePrefixChange(event.target.value)}
-              placeholder="例如：HK、US、机场A"
+              placeholder={t('proxy.modals.namePrefixExample')}
             />
             <p className="text-xs text-[var(--color-text-muted)] mt-1">
-              填写后代理名称将变为 <code className="px-1 bg-[var(--color-bg-secondary)] rounded">前缀-原名称</code>，留空则保持原名
+              {t('proxy.modals.namePrefixHelp')} <code className="px-1 bg-[var(--color-bg-secondary)] rounded">{t('proxy.modals.namePrefixCode')}</code>{t('proxy.modals.namePrefixHelpSuffix')}
             </p>
           </FormItem>
         )}
         {importMode === 'clash' && (
-          <FormItem label="批量 DNS 配置（可选）">
+          <FormItem label={t('proxy.modals.batchDns')}>
             <Textarea
               value={importDnsServers}
               onChange={(event) => onImportDnsServersChange(event.target.value)}
@@ -422,7 +424,7 @@ export function ProxyPoolImportModal({
               placeholder={`dns:\n  enable: true\n  nameserver:\n    - 119.29.29.29\n    - 223.5.5.5`}
             />
             <p className="text-xs text-[var(--color-text-muted)] mt-1">
-              留空则不配置 DNS，填写后将应用到本次导入的所有代理
+              {t('proxy.modals.batchDnsHelp')}
             </p>
           </FormItem>
         )}
@@ -456,18 +458,19 @@ export function ProxyPoolPreviewModal({
   onConfirm,
   onRemoveProxy,
 }: ProxyPoolPreviewModalProps) {
+  const { t } = useI18n()
   const previewColumns: TableColumn<ProxyDisplayInfo>[] = [
-    { key: 'proxyName', title: '代理名称', width: '200px' },
-    { key: 'type', title: '类型', width: '100px' },
-    { key: 'server', title: '服务器', width: '200px' },
-    { key: 'port', title: '端口', width: '100px', render: (value) => value || '-' },
+    { key: 'proxyName', title: t('proxy.columns.proxyName'), width: '200px' },
+    { key: 'type', title: t('proxy.columns.type'), width: '100px' },
+    { key: 'server', title: t('proxy.columns.server'), width: '200px' },
+    { key: 'port', title: t('proxy.columns.port'), width: '100px', render: (value) => value || '-' },
     {
       key: 'actions',
-      title: '操作',
+      title: t('proxy.columns.actions'),
       width: '96px',
       render: (_, record) => (
         <Button size="sm" variant="danger" onClick={() => onRemoveProxy(record.proxyId)}>
-          删除
+          {t('proxy.actions.delete')}
         </Button>
       ),
     },
@@ -477,15 +480,15 @@ export function ProxyPoolPreviewModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="确认导入以下代理"
+      title={t('proxy.modals.previewTitle')}
       width="700px"
       footer={
         <>
           <Button variant="secondary" onClick={onBack}>
-            返回修改
+            {t('proxy.actions.backToEdit')}
           </Button>
           <Button onClick={onConfirm} loading={importing} disabled={previewList.length === 0}>
-            确认导入
+            {t('proxy.actions.confirmImport')}
           </Button>
         </>
       }
@@ -493,13 +496,13 @@ export function ProxyPoolPreviewModal({
       <div className="space-y-3">
         {importMode === 'clash' && importDnsServers.trim() && (
           <p className="text-xs text-[var(--color-text-muted)] bg-[var(--color-bg-secondary)] px-3 py-2 rounded">
-            已配置批量 DNS，将应用到以下所有代理
+            {t('proxy.modals.batchDnsConfigured')}
           </p>
         )}
         <p className="text-xs text-[var(--color-text-muted)]">
-          保留 {previewList.length} 条，删除 {removedPreviewProxyNames.length} 条。删除项不会进入后续比较环节。
+          {t('proxy.modals.keepCount')} {previewList.length}，{t('proxy.modals.deleteCount')} {removedPreviewProxyNames.length} {t('proxy.modals.previewHelpSuffix')}
         </p>
-        <Table columns={previewColumns} data={previewList} rowKey="proxyId" maxHeight="380px" emptyText="无代理数据" />
+        <Table columns={previewColumns} data={previewList} rowKey="proxyId" maxHeight="380px" emptyText={t('proxy.modals.noProxyData')} />
       </div>
     </Modal>
   )
@@ -532,25 +535,26 @@ export function ProxyPoolEditModal({
   onChainEditFormChange,
   onChainEditHopChange,
 }: ProxyPoolEditModalProps) {
+  const { t } = useI18n()
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="编辑代理"
+      title={t('proxy.modals.editTitle')}
       width="500px"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            取消
+            {t('common.actions.cancel')}
           </Button>
           <Button onClick={onSave} loading={saving}>
-            保存
+            {t('proxy.actions.save')}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <FormItem label="代理名称" required>
+        <FormItem label={t('proxy.columns.proxyName')} required>
           <Input
             value={chainEditMode ? chainEditForm.proxyName : editForm.proxyName}
             onChange={(event) => {
@@ -560,14 +564,14 @@ export function ProxyPoolEditModal({
               }
               onChange({ proxyName: event.target.value })
             }}
-            placeholder="节点名称"
+            placeholder={t('proxy.modals.nodeName')}
           />
         </FormItem>
-        <FormItem label="分组名称（可选）">
+        <FormItem label={t('proxy.modals.groupNameOptional')}>
           <Input
             value={editForm.groupName}
             onChange={(event) => onChange({ groupName: event.target.value })}
-            placeholder="分组名称"
+            placeholder={t('proxy.modals.groupNamePlaceholder')}
             list="edit-proxy-groups-datalist"
           />
           <datalist id="edit-proxy-groups-datalist">
@@ -578,20 +582,20 @@ export function ProxyPoolEditModal({
         </FormItem>
         {chainEditMode ? (
           <div className="space-y-4">
-            <FormItem label="本地监听端口（可选）">
+            <FormItem label={t('proxy.modals.localPortOptional')}>
               <Input
                 type="number"
                 min={1}
                 max={65535}
                 value={chainEditForm.localPort}
                 onChange={(event) => onChainEditFormChange({ localPort: event.target.value })}
-                placeholder="留空自动分配"
+                placeholder={t('proxy.modals.autoAssign')}
               />
             </FormItem>
             <div className="rounded-md border border-[var(--color-border)] p-3 space-y-3">
-              <h4 className="text-sm font-medium text-[var(--color-text-primary)]">第一层代理</h4>
+              <h4 className="text-sm font-medium text-[var(--color-text-primary)]">{t('proxy.modals.firstHop')}</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <FormItem label="协议">
+                <FormItem label={t('proxy.modals.protocol')}>
                   <Select
                     value={chainEditForm.first.protocol}
                     onChange={(event) => onChainEditHopChange('first', 'protocol', event.target.value)}
@@ -601,13 +605,13 @@ export function ProxyPoolEditModal({
                     ]}
                   />
                 </FormItem>
-                <FormItem label="代理地址" required>
+                <FormItem label={t('proxy.modals.proxyAddress')} required>
                   <Input
                     value={chainEditForm.first.server}
                     onChange={(event) => onChainEditHopChange('first', 'server', event.target.value)}
                   />
                 </FormItem>
-                <FormItem label="代理端口" required>
+                <FormItem label={t('proxy.modals.proxyPort')} required>
                   <Input
                     type="number"
                     min={1}
@@ -616,13 +620,13 @@ export function ProxyPoolEditModal({
                     onChange={(event) => onChainEditHopChange('first', 'port', event.target.value)}
                   />
                 </FormItem>
-                <FormItem label="账号（可选）">
+                <FormItem label={t('proxy.modals.usernameOptional')}>
                   <Input
                     value={chainEditForm.first.username}
                     onChange={(event) => onChainEditHopChange('first', 'username', event.target.value)}
                   />
                 </FormItem>
-                <FormItem label="密码（可选）">
+                <FormItem label={t('proxy.modals.passwordOptional')}>
                   <Input
                     type="password"
                     value={chainEditForm.first.password}
@@ -632,9 +636,9 @@ export function ProxyPoolEditModal({
               </div>
             </div>
             <div className="rounded-md border border-[var(--color-border)] p-3 space-y-3">
-              <h4 className="text-sm font-medium text-[var(--color-text-primary)]">第二层代理</h4>
+              <h4 className="text-sm font-medium text-[var(--color-text-primary)]">{t('proxy.modals.secondHop')}</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <FormItem label="协议">
+                <FormItem label={t('proxy.modals.protocol')}>
                   <Select
                     value={chainEditForm.second.protocol}
                     onChange={(event) => onChainEditHopChange('second', 'protocol', event.target.value)}
@@ -644,13 +648,13 @@ export function ProxyPoolEditModal({
                     ]}
                   />
                 </FormItem>
-                <FormItem label="代理地址" required>
+                <FormItem label={t('proxy.modals.proxyAddress')} required>
                   <Input
                     value={chainEditForm.second.server}
                     onChange={(event) => onChainEditHopChange('second', 'server', event.target.value)}
                   />
                 </FormItem>
-                <FormItem label="代理端口" required>
+                <FormItem label={t('proxy.modals.proxyPort')} required>
                   <Input
                     type="number"
                     min={1}
@@ -659,13 +663,13 @@ export function ProxyPoolEditModal({
                     onChange={(event) => onChainEditHopChange('second', 'port', event.target.value)}
                   />
                 </FormItem>
-                <FormItem label="账号（可选）">
+                <FormItem label={t('proxy.modals.usernameOptional')}>
                   <Input
                     value={chainEditForm.second.username}
                     onChange={(event) => onChainEditHopChange('second', 'username', event.target.value)}
                   />
                 </FormItem>
-                <FormItem label="密码（可选）">
+                <FormItem label={t('proxy.modals.passwordOptional')}>
                   <Input
                     type="password"
                     value={chainEditForm.second.password}
@@ -676,16 +680,16 @@ export function ProxyPoolEditModal({
             </div>
           </div>
         ) : (
-          <FormItem label="代理配置">
+          <FormItem label={t('proxy.modals.proxyConfig')}>
             <Textarea
               value={editForm.proxyConfig}
               onChange={(event) => onChange({ proxyConfig: event.target.value })}
               rows={10}
-              placeholder="支持 Clash YAML、http://、https://、socks5://、chain+socks5://"
+              placeholder={t('proxy.modals.proxyConfigPlaceholder')}
             />
           </FormItem>
         )}
-        <FormItem label="DNS 服务器（可选）">
+        <FormItem label={t('proxy.modals.dnsServersOptional')}>
           <Textarea
             value={editForm.dnsServers}
             onChange={(event) => onChange({ dnsServers: event.target.value })}
@@ -693,7 +697,7 @@ export function ProxyPoolEditModal({
             placeholder={`dns:\n  enable: true\n  nameserver:\n    - 119.29.29.29\n    - 223.5.5.5`}
           />
           <p className="text-xs text-[var(--color-text-muted)] mt-1">
-            支持 Clash dns: YAML 格式，主要用于 Clash / 桥接代理；直连 HTTP/SOCKS5 通常不会使用这里的 DNS 配置
+            {t('proxy.modals.dnsHelp')}
           </p>
         </FormItem>
       </div>
@@ -712,15 +716,16 @@ export function ProxyPoolIPHealthDetailModal({
   detail,
   onClose,
 }: ProxyPoolIPHealthDetailModalProps) {
+  const { t } = useI18n()
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="IP健康原始返回"
+      title={t('proxy.modals.ipHealthRawTitle')}
       width="760px"
       footer={
         <Button variant="secondary" onClick={onClose}>
-          关闭
+          {t('common.actions.close')}
         </Button>
       }
     >
@@ -728,9 +733,9 @@ export function ProxyPoolIPHealthDetailModal({
         {detail && (
           <>
             <div className="text-xs text-[var(--color-text-muted)]">
-              代理ID：{detail.proxyId} | 来源：{detail.source} | 时间：{detail.updatedAt}
+              {t('proxy.modals.proxyId')}：{detail.proxyId} | {t('proxy.modals.source')}：{detail.source} | {t('proxy.modals.time')}：{detail.updatedAt}
             </div>
-            {!detail.ok && <div className="text-sm text-red-500">{detail.error || '检测失败'}</div>}
+            {!detail.ok && <div className="text-sm text-red-500">{detail.error || t('proxy.failure')}</div>}
             <pre className="max-h-[420px] overflow-auto text-xs leading-5 rounded-lg bg-[var(--color-bg-secondary)] border border-[var(--color-border)] p-3">
               {JSON.stringify(detail.rawData || {}, null, 2)}
             </pre>

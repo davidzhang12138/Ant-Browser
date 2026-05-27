@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 
 import { Button, Card, Input, Switch, Table } from '../../../../shared/components'
 import type { SortOrder, TableColumn } from '../../../../shared/components/Table'
+import { useI18n } from '../../../../shared/i18n'
 import type { ProxyIPHealthResult } from '../../types'
 
 import { BUILTIN_PROXY_IDS, sourceHostLabel, type ProxyDisplayInfo } from './helpers'
@@ -83,28 +84,29 @@ export function ProxyPoolTableCard({
   sortOrder,
   latencyMap,
 }: ProxyPoolTableCardProps) {
+  const { t } = useI18n()
   const hasActiveFilters = filterProtocol !== 'all' || !!filterKeyword || filterGroup !== 'all'
 
   const renderLatency = (record: ProxyDisplayInfo) => {
     if (record.proxyConfig === 'direct://') {
-      return <span className="text-[var(--color-text-muted)] text-xs">不适用</span>
+      return <span className="text-[var(--color-text-muted)] text-xs">{t('proxy.notApplicable')}</span>
     }
     const value = latencyMap[record.proxyId]
     if (value === undefined) return <span className="text-[var(--color-text-muted)] text-xs">-</span>
-    if (value === -1) return <span className="text-[var(--color-text-muted)] text-xs animate-pulse">测试中...</span>
-    if (value === -2) return <span className="text-red-500 text-xs">超时</span>
-    if (value === -3) return <span className="text-gray-400 text-xs">不支持</span>
-    if (value === -4) return <span className="text-red-500 text-xs">失败</span>
+    if (value === -1) return <span className="text-[var(--color-text-muted)] text-xs animate-pulse">{t('proxy.testing')}</span>
+    if (value === -2) return <span className="text-red-500 text-xs">{t('proxy.timeout')}</span>
+    if (value === -3) return <span className="text-gray-400 text-xs">{t('proxy.unsupported')}</span>
+    if (value === -4) return <span className="text-red-500 text-xs">{t('proxy.failure')}</span>
     const color = value < 200 ? 'text-green-500' : value < 500 ? 'text-yellow-500' : 'text-red-500'
     return <span className={`text-xs font-medium ${color}`}>{value} ms</span>
   }
 
   const renderIPHealth = (record: ProxyDisplayInfo) => {
     if (record.proxyConfig === 'direct://') {
-      return <span className="text-[var(--color-text-muted)] text-xs">不适用</span>
+      return <span className="text-[var(--color-text-muted)] text-xs">{t('proxy.notApplicable')}</span>
     }
     if (checkingIPHealthIds.has(record.proxyId)) {
-      return <span className="text-[var(--color-text-muted)] text-xs animate-pulse">检测中...</span>
+      return <span className="text-[var(--color-text-muted)] text-xs animate-pulse">{t('proxy.checking')}</span>
     }
 
     const result = ipHealthMap[record.proxyId]
@@ -112,8 +114,8 @@ export function ProxyPoolTableCard({
     if (!result.ok) {
       return (
         <div className="flex items-center gap-2">
-          <span className="text-xs text-red-500 truncate max-w-[120px]" title={result.error || '检测失败'}>失败</span>
-          <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); onOpenIPHealthDetail(record.proxyId) }}>原始</Button>
+          <span className="text-xs text-red-500 truncate max-w-[120px]" title={result.error || t('proxy.failure')}>{t('proxy.failure')}</span>
+          <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); onOpenIPHealthDetail(record.proxyId) }}>{t('proxy.actions.raw')}</Button>
         </div>
       )
     }
@@ -124,10 +126,10 @@ export function ProxyPoolTableCard({
         <div className="min-w-0">
           <div className="text-xs text-[var(--color-text-primary)] truncate">{result.ip || '-'}</div>
           <div className="text-[11px] text-[var(--color-text-muted)] truncate">
-            {`fraud ${result.fraudScore} | ${result.isResidential ? '住宅' : '机房'}${location ? ` | ${location}` : ''}`}
+            {`fraud ${result.fraudScore} | ${result.isResidential ? t('proxy.residential') : t('proxy.datacenter')}${location ? ` | ${location}` : ''}`}
           </div>
         </div>
-        <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); onOpenIPHealthDetail(record.proxyId) }}>原始</Button>
+        <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); onOpenIPHealthDetail(record.proxyId) }}>{t('proxy.actions.raw')}</Button>
       </div>
     )
   }
@@ -148,17 +150,17 @@ export function ProxyPoolTableCard({
         />
       ),
     },
-    { key: 'proxyName', title: '代理名称', width: '180px', sortable: true },
+    { key: 'proxyName', title: t('proxy.columns.proxyName'), width: '180px', sortable: true },
     {
       key: 'groupName',
-      title: '分组',
+      title: t('proxy.columns.group'),
       width: '100px',
       sortable: true,
       render: (value) => value ? <span className="px-1.5 py-0.5 text-xs rounded bg-[var(--color-accent)]/10 text-[var(--color-accent)]">{value}</span> : '-',
     },
     {
       key: 'source',
-      title: '来源',
+      title: t('proxy.columns.source'),
       width: '180px',
       render: (_, record) => {
         if (!record.sourceUrl) return '-'
@@ -167,7 +169,7 @@ export function ProxyPoolTableCard({
           <div className="text-xs leading-5">
             <div className="text-[var(--color-text-primary)] truncate" title={record.sourceUrl}>{host}</div>
             <div className="text-[var(--color-text-muted)]">
-              {globalAutoRefreshEnabled ? `自动刷新 ${globalRefreshInterval} 分钟（全局）` : '手动刷新'}
+              {globalAutoRefreshEnabled ? `${t('proxy.autoRefresh')} ${globalRefreshInterval} ${t('proxy.filters.minutes')}（${t('proxy.global')}）` : t('proxy.manualRefresh')}
             </div>
           </div>
         )
@@ -175,7 +177,7 @@ export function ProxyPoolTableCard({
     },
     {
       key: 'instanceCount',
-      title: '使用实例',
+      title: t('proxy.columns.instanceCount'),
       width: '90px',
       sortable: true,
       render: (value) => (
@@ -184,12 +186,12 @@ export function ProxyPoolTableCard({
         </span>
       ),
     },
-    { key: 'type', title: '类型', width: '90px', sortable: true },
-    { key: 'server', title: '服务器', width: '180px', sortable: true },
-    { key: 'port', title: '端口', width: '80px', sortable: true, render: (value) => value || '-' },
+    { key: 'type', title: t('proxy.columns.type'), width: '90px', sortable: true },
+    { key: 'server', title: t('proxy.columns.server'), width: '180px', sortable: true },
+    { key: 'port', title: t('proxy.columns.port'), width: '80px', sortable: true, render: (value) => value || '-' },
     {
       key: 'latency',
-      title: '延迟',
+      title: t('proxy.columns.latency'),
       width: '90px',
       sortable: true,
       render: (_, record) => renderLatency(record),
@@ -198,9 +200,9 @@ export function ProxyPoolTableCard({
       key: 'ipHealth',
       title: (
         <div className="leading-tight">
-          <div>IP健康</div>
+          <div>{t('proxy.columns.ipHealth')}</div>
           <div className="mt-0.5 text-[10px] font-normal text-[var(--color-text-muted)]">
-            仅供参考
+            {t('proxy.columns.ipHealthHint')}
           </div>
         </div>
       ),
@@ -209,7 +211,7 @@ export function ProxyPoolTableCard({
     },
     {
       key: 'actions',
-      title: '操作',
+      title: t('proxy.columns.actions'),
       width: '320px',
       render: (_, record) => {
         const isBuiltin = BUILTIN_PROXY_IDS.has(record.proxyId)
@@ -224,7 +226,7 @@ export function ProxyPoolTableCard({
                 onClick={(event) => { event.stopPropagation(); onRefreshSingleSource(sourceId) }}
                 loading={refreshingSourceIds.has(sourceId)}
               >
-                刷新订阅
+                {t('proxy.actions.refreshSubscriptions')}
               </Button>
             )}
             <Button
@@ -234,7 +236,7 @@ export function ProxyPoolTableCard({
               loading={latencyMap[record.proxyId] === -1}
               disabled={record.proxyConfig === 'direct://'}
             >
-              测速
+              {t('proxy.actions.speedTest')}
             </Button>
             <Button
               size="sm"
@@ -243,31 +245,31 @@ export function ProxyPoolTableCard({
               loading={checkingIPHealthIds.has(record.proxyId)}
               disabled={record.proxyConfig === 'direct://'}
             >
-              IP健康
+              {t('proxy.actions.checkIPHealth')}
             </Button>
             <Button
               size="sm"
               variant="ghost"
               disabled={isBuiltin}
-              title={isBuiltin ? '内置代理不可编辑' : undefined}
+              title={isBuiltin ? t('proxy.builtinEditDisabled') : undefined}
               onClick={(event) => {
                 event.stopPropagation()
                 if (!isBuiltin) onEdit(record)
               }}
             >
-              编辑
+              {t('proxy.actions.edit')}
             </Button>
             <Button
               size="sm"
               variant="danger"
               disabled={isBuiltin}
-              title={isBuiltin ? '内置代理不可删除' : undefined}
+              title={isBuiltin ? t('proxy.builtinDeleteDisabled') : undefined}
               onClick={(event) => {
                 event.stopPropagation()
                 if (!isBuiltin) onDelete(record.proxyId)
               }}
             >
-              删除
+              {t('proxy.actions.delete')}
             </Button>
           </div>
         )
@@ -296,7 +298,7 @@ export function ProxyPoolTableCard({
         <Input
           value={filterKeyword}
           onChange={event => onFilterKeywordChange(event.target.value)}
-          placeholder="搜索名称或服务器..."
+          placeholder={t('proxy.filters.searchPlaceholder')}
           style={{ width: '220px' }}
         />
         <select
@@ -305,7 +307,7 @@ export function ProxyPoolTableCard({
           className="h-9 px-3 text-sm rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-border-strong)] transition-colors duration-150"
         >
           {protocolOptions.map(protocol => (
-            <option key={protocol} value={protocol}>{protocol === 'all' ? '全部协议' : protocol.toUpperCase()}</option>
+            <option key={protocol} value={protocol}>{protocol === 'all' ? t('proxy.filters.allProtocols') : protocol.toUpperCase()}</option>
           ))}
         </select>
         <select
@@ -313,14 +315,14 @@ export function ProxyPoolTableCard({
           onChange={event => onFilterGroupChange(event.target.value)}
           className="h-9 px-3 text-sm rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-strong)] focus:ring-1 focus:ring-[var(--color-border-strong)] transition-colors duration-150"
         >
-          <option value="all">全部分组</option>
+          <option value="all">{t('proxy.filters.allGroups')}</option>
           {groups.map(group => <option key={group} value={group}>{group}</option>)}
         </select>
         {hasActiveFilters && (
-          <Button size="sm" variant="ghost" onClick={onClearFilters}>清除筛选</Button>
+          <Button size="sm" variant="ghost" onClick={onClearFilters}>{t('proxy.actions.clearFilters')}</Button>
         )}
         <div className="flex items-center gap-2 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-2 py-1.5">
-          <span className="text-xs text-[var(--color-text-muted)]">全局自动刷新</span>
+          <span className="text-xs text-[var(--color-text-muted)]">{t('proxy.filters.globalAutoRefresh')}</span>
           <Switch
             checked={globalAutoRefreshEnabled}
             onChange={onGlobalAutoRefreshEnabledChange}
@@ -334,7 +336,7 @@ export function ProxyPoolTableCard({
             className="w-24"
             disabled={!globalAutoRefreshEnabled}
           />
-          <span className="text-xs text-[var(--color-text-muted)]">分钟</span>
+          <span className="text-xs text-[var(--color-text-muted)]">{t('proxy.filters.minutes')}</span>
         </div>
         <div className="flex-1" />
         {data.length > 0 && (
@@ -350,12 +352,12 @@ export function ProxyPoolTableCard({
               onChange={onToggleAll}
               className="w-4 h-4 rounded border-[var(--color-border-default)] accent-[var(--color-accent)] cursor-pointer"
             />
-            全选
+            {t('proxy.filters.selectAll')}
           </label>
         )}
         {selectedCount > 0 && (
           <Button size="sm" variant="danger" onClick={onOpenBatchDelete}>
-            删除所选 ({selectedCount})
+            {t('proxy.actions.deleteSelected')} ({selectedCount})
           </Button>
         )}
       </div>
@@ -364,7 +366,7 @@ export function ProxyPoolTableCard({
         data={data}
         rowKey="proxyId"
         loading={loading}
-        emptyText="暂无代理配置，点击上方按钮添加或导入"
+        emptyText={t('proxy.empty')}
         sortColumn={sortColumn}
         sortOrder={sortOrder}
         onSort={onSort}
