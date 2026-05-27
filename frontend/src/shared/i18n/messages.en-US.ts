@@ -421,6 +421,7 @@ export const enUSMessages = {
     timeout: 'Timeout',
     unsupported: 'Unsupported',
     failure: 'Failed',
+    fraudScore: 'Fraud',
     residential: 'Residential',
     datacenter: 'Datacenter',
     manualRefresh: 'Manual refresh',

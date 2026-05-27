@@ -126,7 +126,7 @@ export function ProxyPoolTableCard({
         <div className="min-w-0">
           <div className="text-xs text-[var(--color-text-primary)] truncate">{result.ip || '-'}</div>
           <div className="text-[11px] text-[var(--color-text-muted)] truncate">
-            {`fraud ${result.fraudScore} | ${result.isResidential ? t('proxy.residential') : t('proxy.datacenter')}${location ? ` | ${location}` : ''}`}
+            {`${t('proxy.fraudScore')} ${result.fraudScore} | ${result.isResidential ? t('proxy.residential') : t('proxy.datacenter')}${location ? ` | ${location}` : ''}`}
           </div>
         </div>
         <Button size="sm" variant="ghost" onClick={(event) => { event.stopPropagation(); onOpenIPHealthDetail(record.proxyId) }}>{t('proxy.actions.raw')}</Button>

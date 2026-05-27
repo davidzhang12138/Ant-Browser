@@ -421,6 +421,7 @@ export const zhCNMessages = {
     timeout: '超时',
     unsupported: '不支持',
     failure: '失败',
+    fraudScore: '欺诈分',
     residential: '住宅',
     datacenter: '机房',
     manualRefresh: '手动刷新',
