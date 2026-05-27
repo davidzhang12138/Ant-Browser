@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import { useI18n } from '../../../shared/i18n'
 
 interface Props {
   keywords: string[]
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export function KeywordsExpandRow({ keywords, colSpan }: Props) {
+  const { t } = useI18n()
   const [expanded, setExpanded] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const [isOverflowing, setIsOverflowing] = useState(false)
@@ -25,7 +27,7 @@ export function KeywordsExpandRow({ keywords, colSpan }: Props) {
         className="px-6 py-3 bg-[var(--color-bg-muted)]/30 border-b border-[var(--color-border-muted)]"
       >
         {!keywords?.length ? (
-          <span className="text-xs text-[var(--color-text-muted)] italic">暂无关键字</span>
+          <span className="text-xs text-[var(--color-text-muted)] italic">{t('browserList.widgets.noKeywords')}</span>
         ) : (
           <div className="flex items-start gap-4">
             <div
@@ -51,9 +53,9 @@ export function KeywordsExpandRow({ keywords, colSpan }: Props) {
                 className="shrink-0 flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline mt-1 focus:outline-none"
               >
                 {expanded ? (
-                  <>收回 <ChevronUp className="w-3.5 h-3.5" /></>
+                  <>{t('browserList.widgets.collapse')} <ChevronUp className="w-3.5 h-3.5" /></>
                 ) : (
-                  <>展开详情 <ChevronDown className="w-3.5 h-3.5" /></>
+                  <>{t('browserList.widgets.expandDetails')} <ChevronDown className="w-3.5 h-3.5" /></>
                 )}
               </button>
             )}
@@ -63,4 +65,3 @@ export function KeywordsExpandRow({ keywords, colSpan }: Props) {
     </tr>
   )
 }
-
