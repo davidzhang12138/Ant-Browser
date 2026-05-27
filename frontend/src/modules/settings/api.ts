@@ -1,4 +1,5 @@
 // Settings 模块 API
+import { getSystemLanguage } from '../../shared/i18n'
 import type { AppSettings } from './types'
 import { defaultSettings } from './types'
 
@@ -157,15 +158,16 @@ export const defaultStorageCleanupOverview: StorageCleanupOverview = {
 
 // 获取设置
 export async function fetchSettings(): Promise<AppSettings> {
+  const defaultLanguage = getSystemLanguage()
   try {
     const stored = localStorage.getItem(SETTINGS_KEY)
     if (stored) {
-      return { ...defaultSettings, ...JSON.parse(stored) }
+      return { ...defaultSettings, language: defaultLanguage, ...JSON.parse(stored) }
     }
   } catch (error) {
     console.error('Failed to load settings:', error)
   }
-  return defaultSettings
+  return { ...defaultSettings, language: defaultLanguage }
 }
 
 // 保存设置
@@ -182,7 +184,7 @@ export async function saveSettings(settings: AppSettings): Promise<boolean> {
 // 重置设置
 export async function resetSettings(): Promise<AppSettings> {
   localStorage.removeItem(SETTINGS_KEY)
-  return defaultSettings
+  return { ...defaultSettings, language: getSystemLanguage() }
 }
 
 export async function initializeSystemData(): Promise<BackupActionResult> {

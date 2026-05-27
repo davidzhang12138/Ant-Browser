@@ -9,8 +9,9 @@ import {
 import { enUSMessages } from './messages.en-US'
 import { zhCNMessages } from './messages.zh-CN'
 import {
-  DEFAULT_LANGUAGE,
   SUPPORTED_LANGUAGE_OPTIONS,
+  getSystemLanguage,
+  matchSupportedLanguage,
   normalizeLanguage,
   type I18nContextValue,
   type Language,
@@ -44,7 +45,7 @@ function readStoredLanguage(defaultLanguage: Language): Language {
     }
     const settings = JSON.parse(raw) as { language?: unknown }
     if (typeof settings.language === 'string') {
-      return normalizeLanguage(settings.language)
+      return matchSupportedLanguage(settings.language) || defaultLanguage
     }
   } catch (error) {
     console.warn('Failed to load language setting:', error)
@@ -85,7 +86,7 @@ function translate(messageTree: MessageTree, key: string): string {
 
 export function LanguageProvider({
   children,
-  defaultLanguage = DEFAULT_LANGUAGE,
+  defaultLanguage = getSystemLanguage(),
 }: LanguageProviderProps) {
   const [language, setLanguageState] = useState<Language>(() =>
     readStoredLanguage(defaultLanguage),

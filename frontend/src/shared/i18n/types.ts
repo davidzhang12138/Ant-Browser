@@ -18,13 +18,36 @@ export interface I18nContextValue {
   supportedLanguages: typeof SUPPORTED_LANGUAGE_OPTIONS
 }
 
-export function normalizeLanguage(language: string | null | undefined): Language {
+export function matchSupportedLanguage(language: string | null | undefined): Language | null {
   const normalized = String(language || '').trim().toLowerCase()
-  if (normalized === 'en' || normalized === 'en-us') {
+  if (normalized === 'en' || normalized.startsWith('en-')) {
     return 'en-US'
   }
-  if (normalized === 'zh' || normalized === 'zh-cn' || normalized === 'zh-hans') {
+  if (normalized === 'zh' || normalized.startsWith('zh-')) {
     return 'zh-CN'
   }
+  return null
+}
+
+export function normalizeLanguage(language: string | null | undefined): Language {
+  return matchSupportedLanguage(language) || DEFAULT_LANGUAGE
+}
+
+export function getSystemLanguage(languageCandidates?: readonly string[]): Language {
+  let candidates = languageCandidates
+  if (!candidates && typeof navigator !== 'undefined') {
+    candidates = [
+      ...(Array.isArray(navigator.languages) ? navigator.languages : []),
+      navigator.language,
+    ].filter(Boolean)
+  }
+
+  for (const candidate of candidates || []) {
+    const supportedLanguage = matchSupportedLanguage(candidate)
+    if (supportedLanguage) {
+      return supportedLanguage
+    }
+  }
+
   return DEFAULT_LANGUAGE
 }
