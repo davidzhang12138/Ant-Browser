@@ -22,6 +22,7 @@ import {
 import clsx from "clsx";
 import { useLayoutStore } from "../../store/layoutStore";
 import { projectConfig, navigationConfig } from "../../config";
+import { useI18n } from "../i18n";
 
 // 导入应用logo
 import logoImage from "../../resources/images/logo.png";
@@ -51,6 +52,15 @@ function getIcon(iconName: string): LucideIcon {
 export function Sidebar() {
   const location = useLocation();
   const { sidebarCollapsed, toggleSidebar } = useLayoutStore();
+  const { t } = useI18n();
+  const logoAlt = t("shell.sidebar.logoAlt");
+  const expandLabel = t("shell.sidebar.expand");
+  const collapseLabel = t("shell.sidebar.collapse");
+
+  const translateWithFallback = (key: string, fallback: string) => {
+    const translated = t(key);
+    return translated === key ? fallback : translated;
+  };
 
   return (
     <aside
@@ -71,7 +81,7 @@ export function Sidebar() {
             <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 bg-[var(--color-accent)] flex items-center justify-center">
               <img
                 src={logoImage}
-                alt="应用Logo"
+                alt={logoAlt}
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   // 图片加载失败时显示首字母
@@ -91,7 +101,7 @@ export function Sidebar() {
           <div className="w-8 h-8 rounded-full overflow-hidden bg-[var(--color-accent)] flex items-center justify-center">
             <img
               src={logoImage}
-              alt="应用Logo"
+              alt={logoAlt}
               className="w-full h-full object-cover"
               onError={(e) => {
                 // 图片加载失败时显示首字母
@@ -112,12 +122,13 @@ export function Sidebar() {
           <div key={section.title}>
             {!sidebarCollapsed && (
               <h3 className="px-3 mb-2 text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-widest">
-                {section.title}
+                {translateWithFallback(section.labelKey, section.title)}
               </h3>
             )}
             <div className="space-y-1">
               {section.items.map((item) => {
                 const Icon = getIcon(item.icon);
+                const itemLabel = translateWithFallback(item.labelKey, item.name);
                 const isActive =
                   location.pathname === item.path ||
                   (item.path !== "/" &&
@@ -127,7 +138,7 @@ export function Sidebar() {
                   <Link
                     key={item.path}
                     to={item.path}
-                    title={sidebarCollapsed ? item.name : undefined}
+                    title={sidebarCollapsed ? itemLabel : undefined}
                     className={clsx(
                       "flex items-center rounded-lg transition-all duration-150",
                       isActive
@@ -141,7 +152,7 @@ export function Sidebar() {
                     <Icon className="w-[18px] h-[18px] flex-shrink-0" />
                     {!sidebarCollapsed && (
                       <span className="text-sm font-medium truncate">
-                        {item.name}
+                        {itemLabel}
                       </span>
                     )}
                   </Link>
@@ -162,14 +173,14 @@ export function Sidebar() {
               ? "justify-center w-10 h-10 mx-auto"
               : "w-full px-3 py-2 gap-3",
           )}
-          title={sidebarCollapsed ? "展开" : "收起"}
+          title={sidebarCollapsed ? expandLabel : collapseLabel}
         >
           {sidebarCollapsed ? (
             <ChevronRight className="w-[18px] h-[18px]" />
           ) : (
             <>
               <ChevronLeft className="w-[18px] h-[18px]" />
-              <span className="text-sm">收起侧边栏</span>
+              <span className="text-sm">{t("shell.sidebar.collapseLabel")}</span>
             </>
           )}
         </button>

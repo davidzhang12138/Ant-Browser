@@ -3,17 +3,20 @@ import { Bell, Search, Settings, Check, Trash2, Info, AlertCircle, CheckCircle }
 import { Link } from 'react-router-dom'
 import clsx from 'clsx'
 import { useNotificationStore, type Notification } from '../../store/notificationStore'
+import { useI18n } from '../i18n'
 
 function NotificationDropdown({
   notifications,
   onMarkAsRead,
   onMarkAllAsRead,
-  onClear
+  onClear,
+  t,
 }: {
   notifications: Notification[]
   onMarkAsRead: (id: string) => void
   onMarkAllAsRead: () => void
   onClear: () => void
+  t: (key: string) => string
 }) {
   const unreadCount = notifications.filter(n => !n.read).length
 
@@ -31,7 +34,7 @@ function NotificationDropdown({
       {/* Header */}
       <div className="px-4 py-3 border-b border-[var(--color-border-muted)] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-[var(--color-text-primary)]">通知</span>
+          <span className="text-sm font-semibold text-[var(--color-text-primary)]">{t('shell.topbar.notifications.title')}</span>
           {unreadCount > 0 && (
             <span className="px-1.5 py-0.5 text-xs font-medium bg-[var(--color-accent)] text-white rounded-full">
               {unreadCount}
@@ -43,7 +46,7 @@ function NotificationDropdown({
             <button
               onClick={onMarkAllAsRead}
               className="p-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-muted)] rounded transition-colors"
-              title="全部标为已读"
+              title={t('shell.topbar.notifications.markAllRead')}
             >
               <Check className="w-3.5 h-3.5" />
             </button>
@@ -51,7 +54,7 @@ function NotificationDropdown({
           <button
             onClick={onClear}
             className="p-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-error)] hover:bg-[var(--color-bg-muted)] rounded transition-colors"
-            title="清空通知"
+            title={t('shell.topbar.notifications.clear')}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -63,7 +66,7 @@ function NotificationDropdown({
         {notifications.length === 0 ? (
           <div className="py-8 text-center text-[var(--color-text-muted)]">
             <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">暂无通知</p>
+            <p className="text-sm">{t('shell.topbar.notifications.empty')}</p>
           </div>
         ) : (
           notifications.map((notification) => (
@@ -108,7 +111,7 @@ function NotificationDropdown({
       {notifications.length > 0 && (
         <div className="px-4 py-2 border-t border-[var(--color-border-muted)] bg-[var(--color-bg-muted)]/50">
           <button className="w-full text-xs text-center text-[var(--color-accent)] hover:underline">
-            查看全部通知
+            {t('shell.topbar.notifications.viewAll')}
           </button>
         </div>
       )}
@@ -119,6 +122,7 @@ function NotificationDropdown({
 export function Topbar() {
   const [showNotifications, setShowNotifications] = useState(false)
   const { notifications, markAsRead, markAllAsRead, clearNotifications } = useNotificationStore()
+  const { t } = useI18n()
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const unreadCount = notifications.filter(n => !n.read).length
@@ -142,7 +146,7 @@ export function Topbar() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
           <input
             type="text"
-            placeholder="搜索..."
+            placeholder={t('shell.topbar.searchPlaceholder')}
             className="w-full h-8 pl-9 pr-3 bg-[var(--color-bg-muted)] border border-transparent rounded-md text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:bg-[var(--color-bg-surface)] focus:border-[var(--color-border-strong)] transition-all duration-150"
           />
         </div>
@@ -163,7 +167,7 @@ export function Topbar() {
                 ? 'text-[var(--color-accent)] bg-[var(--color-accent-muted)]'
                 : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-accent-muted)]'
             )}
-            title="通知"
+            title={t('shell.topbar.notifications.tooltip')}
           >
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
@@ -178,6 +182,7 @@ export function Topbar() {
               notifications={notifications}
               onMarkAsRead={markAsRead}
               onMarkAllAsRead={markAllAsRead}
+              t={t}
               onClear={() => {
                 clearNotifications()
                 setShowNotifications(false)
@@ -189,7 +194,7 @@ export function Topbar() {
         <Link
           to="/settings"
           className="w-8 h-8 flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-accent-muted)] rounded-md transition-colors duration-150"
-          title="设置"
+          title={t('shell.topbar.settingsTooltip')}
         >
           <Settings className="w-4 h-4" />
         </Link>

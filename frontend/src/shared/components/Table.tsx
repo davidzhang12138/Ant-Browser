@@ -1,6 +1,7 @@
 import type { ReactNode, RefObject, UIEventHandler } from 'react'
 import clsx from 'clsx'
 import { ArrowUp, ArrowDown } from 'lucide-react'
+import { useI18n } from '../i18n'
 
 export type SortOrder = 'asc' | 'desc' | undefined
 
@@ -41,7 +42,7 @@ export function Table<T extends Record<string, any>>({
   data,
   rowKey,
   loading = false,
-  emptyText = '暂无数据',
+  emptyText,
   onRowClick,
   className,
   tableMinWidth,
@@ -53,6 +54,9 @@ export function Table<T extends Record<string, any>>({
   scrollContainerRef,
   onScroll,
 }: TableProps<T>) {
+  const { t } = useI18n()
+  const resolvedEmptyText = emptyText ?? t('common.empty')
+
   const getRowKey = (record: T, index: number): string => {
     if (typeof rowKey === 'function') {
       return rowKey(record)
@@ -65,7 +69,7 @@ export function Table<T extends Record<string, any>>({
       <div className="flex items-center justify-center py-16" style={{ maxHeight }}>
         <div className="flex flex-col items-center gap-3">
           <div className="w-6 h-6 border-2 border-[var(--color-border-default)] border-t-[var(--color-accent)] rounded-full animate-spin" />
-          <span className="text-sm text-[var(--color-text-muted)]">加载中...</span>
+          <span className="text-sm text-[var(--color-text-muted)]">{t('common.loading')}</span>
         </div>
       </div>
     )
@@ -145,7 +149,7 @@ export function Table<T extends Record<string, any>>({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                     </svg>
                   </div>
-                  <span className="text-sm text-[var(--color-text-muted)]">{emptyText}</span>
+                  <span className="text-sm text-[var(--color-text-muted)]">{resolvedEmptyText}</span>
                 </div>
               </td>
             </tr>

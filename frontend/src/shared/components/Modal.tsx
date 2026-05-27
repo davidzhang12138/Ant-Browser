@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { Button } from './Button'
+import { useI18n } from '../i18n'
 
 interface ModalProps {
   open: boolean
@@ -99,22 +100,24 @@ export function ConfirmModal({
   open,
   onClose,
   onConfirm,
-  title = '确认',
+  title,
   content,
-  confirmText = '确定',
-  cancelText = '取消',
+  confirmText,
+  cancelText,
   danger = false,
 }: ConfirmModalProps) {
+  const { t } = useI18n()
+
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={title}
+      title={title ?? t('common.actions.confirm')}
       width="400px"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {cancelText}
+            {cancelText ?? t('common.actions.cancel')}
           </Button>
           <Button
             variant={danger ? 'danger' : 'primary'}
@@ -123,7 +126,7 @@ export function ConfirmModal({
               onClose()
             }}
           >
-            {confirmText}
+            {confirmText ?? t('common.actions.confirm')}
           </Button>
         </>
       }
