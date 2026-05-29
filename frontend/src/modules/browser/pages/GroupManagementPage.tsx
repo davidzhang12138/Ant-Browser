@@ -91,6 +91,7 @@ export function GroupManagementPage() {
     group: null,
     parentId: '',
   })
+  const [pendingDeleteGroup, setPendingDeleteGroup] = useState<BrowserGroupWithCount | null>(null)
   const [groupName, setGroupName] = useState('')
   const [parentId, setParentId] = useState('')
 
@@ -201,13 +202,20 @@ export function GroupManagementPage() {
     }
   }
 
-  const handleDeleteGroup = async (group: BrowserGroupWithCount) => {
-    if (!confirm(`确定删除「${group.groupName}」？子分组和实例会移动到上级分组。`)) return
+  const closeDeleteGroupModal = () => {
+    if (saving) return
+    setPendingDeleteGroup(null)
+  }
+
+  const handleDeleteGroup = async () => {
+    if (!pendingDeleteGroup) return
+    const group = pendingDeleteGroup
     setSaving(true)
     try {
       await deleteGroup(group.groupId)
       toast.success('分组已删除')
       if (selectedGroupId === group.groupId) setSelectedGroupId(null)
+      setPendingDeleteGroup(null)
       await load()
     } catch (error: any) {
       toast.error(error?.message || '删除分组失败')
@@ -373,7 +381,7 @@ export function GroupManagementPage() {
                 <Button variant="secondary" onClick={() => openEditGroup(selectedGroup)}>
                   <Pencil className="h-4 w-4" />编辑
                 </Button>
-                <Button variant="danger" onClick={() => { void handleDeleteGroup(selectedGroup) }}>
+                <Button variant="danger" onClick={() => setPendingDeleteGroup(selectedGroup)}>
                   <Trash2 className="h-4 w-4" />删除
                 </Button>
               </>
@@ -500,6 +508,26 @@ export function GroupManagementPage() {
               options={selectableParentOptions}
             />
           </FormItem>
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(pendingDeleteGroup)}
+        onClose={closeDeleteGroupModal}
+        title="确认删除分组"
+        width="460px"
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeDeleteGroupModal} disabled={saving}>取消</Button>
+            <Button variant="danger" onClick={() => { void handleDeleteGroup() }} loading={saving}>删除</Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm text-[var(--color-text-secondary)]">
+          <p>确定删除「{pendingDeleteGroup?.groupName || '-'}」？</p>
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+            子分组和实例会移动到上级分组。
+          </div>
         </div>
       </Modal>
 

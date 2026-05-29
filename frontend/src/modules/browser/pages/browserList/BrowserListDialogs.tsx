@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { AlertTriangle, Clock3, FolderTree, HardDrive, KeyRound, Network, RefreshCw, RotateCcw, ShieldCheck, Tags, Trash2, User, XCircle } from 'lucide-react'
+import { AlertTriangle, Clock3, FolderTree, HardDrive, KeyRound, Network, RefreshCw, RotateCcw, Search, ShieldCheck, Tags, Trash2, User, XCircle } from 'lucide-react'
 import { Button, FormItem, Input, Modal } from '../../../../shared/components'
 import { useI18n } from '../../../../shared/i18n'
 import { KeywordsModal } from '../../components/KeywordsModal'
@@ -133,6 +133,34 @@ function trashPlatformLabel(profile: BrowserProfile, t: (key: string) => string)
   return profile.platformName || profile.platform
 }
 
+function matchesTrashProfile(profile: BrowserProfile, query: string, labels: string[]) {
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  if (terms.length === 0) return true
+
+  const fields = [
+    profile.profileName,
+    profile.profileId,
+    profile.id ? String(profile.id) : '',
+    profile.launchCode,
+    profile.username,
+    profile.userDataDir,
+    profile.platform,
+    profile.platformName,
+    profile.platformUrl,
+    profile.proxyBindName,
+    profile.proxyId,
+    profile.proxyConfig,
+    profile.coreId,
+    ...(profile.tags || []),
+    ...(profile.keywords || []),
+    ...labels,
+  ]
+    .filter(Boolean)
+    .map(value => String(value).toLowerCase())
+
+  return terms.every(term => fields.some(value => value.includes(term)))
+}
+
 function TrashInfoItem({
   icon,
   label,
@@ -204,6 +232,17 @@ export function BrowserListDialogs({
 }: BrowserListDialogsProps) {
   const { t, language } = useI18n()
   const [pendingTrashDelete, setPendingTrashDelete] = useState<BrowserProfile | null>(null)
+  const [trashSearch, setTrashSearch] = useState('')
+  const normalizedTrashSearch = trashSearch.trim().toLowerCase()
+  const filteredTrashProfiles = useMemo(() => (
+    trashProfiles.filter(profile => matchesTrashProfile(profile, normalizedTrashSearch, [
+      resolveTrashGroupLabel(profile, trashGroups, t),
+      resolveTrashProxyLabel(profile, trashProxies, t),
+      resolveTrashCoreLabel(profile, trashCores, t),
+      trashPlatformLabel(profile, t),
+    ]))
+  ), [normalizedTrashSearch, t, trashCores, trashGroups, trashProfiles, trashProxies])
+
   const confirmTrashDelete = () => {
     if (!pendingTrashDelete) return
     onDeleteForeverTrash(pendingTrashDelete.profileId)
@@ -343,14 +382,33 @@ export function BrowserListDialogs({
             </div>
           </div>
 
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[240px] flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
+              <Input
+                value={trashSearch}
+                onChange={event => setTrashSearch(event.target.value)}
+                placeholder={t('browserList.dialogs.searchTrashPlaceholder')}
+                className="pl-9"
+              />
+            </div>
+            {normalizedTrashSearch && (
+              <div className="text-xs text-[var(--color-text-muted)]">
+                {filteredTrashProfiles.length} / {trashProfiles.length}
+              </div>
+            )}
+          </div>
+
           <div className="max-h-[460px] overflow-auto rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-surface)]">
             {trashLoading ? (
               <div className="py-12 text-center text-sm text-[var(--color-text-muted)]">{t('common.loading')}</div>
             ) : trashProfiles.length === 0 ? (
               <div className="py-12 text-center text-sm text-[var(--color-text-muted)]">{t('browserList.dialogs.trashEmpty')}</div>
+            ) : filteredTrashProfiles.length === 0 ? (
+              <div className="py-12 text-center text-sm text-[var(--color-text-muted)]">{t('browserList.dialogs.trashSearchEmpty')}</div>
             ) : (
               <div className="divide-y divide-[var(--color-border-muted)]">
-                {trashProfiles.map((profile) => {
+                {filteredTrashProfiles.map((profile) => {
                   const platform = trashPlatformLabel(profile, t)
                   const groupLabel = resolveTrashGroupLabel(profile, trashGroups, t)
                   const proxyLabel = resolveTrashProxyLabel(profile, trashProxies, t)
